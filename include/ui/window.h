@@ -56,4 +56,14 @@ void school_window_navigate(NavPage page);
  */
 GtkStack *school_window_get_content_stack(void);
 
+/**
+ * @brief Transition window to display the login screen.
+ */
+void school_window_show_login(void);
+
+/**
+ * @brief Transition window to display the main application dashboard.
+ */
+void school_window_show_app(void);
+
 #endif /* SCHOOLCMS_UI_WINDOW_H */
