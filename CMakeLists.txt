@@ -27,6 +27,7 @@ set(SOURCES
     src/modules/student.c
     src/modules/teacher.c
     src/modules/classes.c
+    src/modules/attendance.c
     src/ui/login.c
     src/ui/window.c
     src/ui/sidebar.c
@@ -35,6 +36,7 @@ set(SOURCES
     src/ui/student_view.c
     src/ui/teacher_view.c
     src/ui/classes_view.c
+    src/ui/attendance_view.c
 )
 
 # Build executable
@@ -139,6 +141,19 @@ target_include_directories(test_classes PRIVATE
     ${CMAKE_SOURCE_DIR}/include
 )
 target_link_libraries(test_classes PRIVATE
+    PkgConfig::SQLITE3
+)
+
+# Attendance unit test executable
+add_executable(test_attendance
+    tests/test_attendance.c
+    src/modules/attendance.c
+    src/database.c
+)
+target_include_directories(test_attendance PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+target_link_libraries(test_attendance PRIVATE
     PkgConfig::SQLITE3
 )
 
