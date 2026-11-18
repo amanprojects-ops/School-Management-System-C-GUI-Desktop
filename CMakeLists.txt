@@ -23,6 +23,7 @@ set(SOURCES
     src/app.c
     src/database.c
     src/auth/auth.c
+    src/modules/dashboard.c
     src/ui/login.c
     src/ui/window.c
     src/ui/sidebar.c
@@ -80,6 +81,20 @@ target_include_directories(test_auth PRIVATE
 target_link_libraries(test_auth PRIVATE
     PkgConfig::SQLITE3
     PkgConfig::CRYPTO
+)
+
+# Dashboard unit test executable
+add_executable(test_dashboard
+    tests/test_dashboard.c
+    src/modules/dashboard.c
+    src/database.c
+)
+target_include_directories(test_dashboard PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+target_link_libraries(test_dashboard PRIVATE
+    PkgConfig::SQLITE3
+    PkgConfig::GTK4
 )
 
 # Install rules
