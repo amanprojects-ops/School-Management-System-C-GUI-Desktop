@@ -42,7 +42,7 @@ cmake --build .
 - [x] Phase 5: Student Management CRUD
 - [x] Phase 6: Teacher & Staff Management
 - [x] Phase 7: Class & Section Management
-- [ ] Phase 8: Attendance System
+- [x] Phase 8: Attendance System
 - [ ] Phase 9: Fee Management
 - [ ] Phase 10: Examination & Results
 - [ ] Phase 11: Timetable
