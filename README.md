@@ -39,7 +39,7 @@ cmake --build .
 - [x] Phase 2: Database and Migration System
 - [x] Phase 3: Login and Authentication
 - [x] Phase 4: Main Dashboard UI (live data)
-- [ ] Phase 5: Student Management CRUD
+- [x] Phase 5: Student Management CRUD
 - [ ] Phase 6: Teacher & Staff Management
 - [ ] Phase 7: Class & Section Management
 - [ ] Phase 8: Attendance System
