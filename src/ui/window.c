@@ -15,6 +15,7 @@
 #include "ui/exams_view.h"
 #include "ui/timetable_view.h"
 #include "ui/reports_view.h"
+#include "ui/settings_view.h"
 #include "ui/login.h"
 #include "auth/auth.h"
 #include <stdio.h>
@@ -64,38 +65,6 @@ static void on_login_success(gpointer user_data)
     }
     school_window_show_app();
     school_window_navigate(NAV_DASHBOARD);
-}
-
-/* ── Placeholder page builder ─────────────────────────────────────── */
-
-/**
- * Build a simple centred label as a placeholder for modules
- * that have not been implemented yet.
- */
-static GtkWidget *make_placeholder_page(const char *title)
-{
-    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
-    gtk_widget_set_hexpand(box, TRUE);
-    gtk_widget_set_vexpand(box, TRUE);
-    gtk_widget_set_halign(box, GTK_ALIGN_CENTER);
-    gtk_widget_set_valign(box, GTK_ALIGN_CENTER);
-
-    GtkWidget *icon = gtk_image_new_from_icon_name("applications-system-symbolic");
-    gtk_image_set_pixel_size(GTK_IMAGE(icon), 64);
-    gtk_widget_add_css_class(icon, "dim-label");
-    gtk_box_append(GTK_BOX(box), icon);
-
-    char buf[256];
-    snprintf(buf, sizeof(buf), "<span size='x-large' weight='bold'>%s</span>", title);
-    GtkWidget *label = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(label), buf);
-    gtk_box_append(GTK_BOX(box), label);
-
-    GtkWidget *sub = gtk_label_new("This module will be implemented in a future phase.");
-    gtk_widget_add_css_class(sub, "dim-label");
-    gtk_box_append(GTK_BOX(box), sub);
-
-    return box;
 }
 
 /* ── Public API ───────────────────────────────────────────────────── */
@@ -176,10 +145,8 @@ void school_window_new(GtkApplication *app)
     GtkWidget *reports_page = school_reports_view_new();
     gtk_stack_add_named(content_stack, reports_page, page_names[NAV_REPORTS]);
 
-    for (int i = 9; i < NAV_PAGE_COUNT; i++) {
-        GtkWidget *ph = make_placeholder_page(page_titles[i]);
-        gtk_stack_add_named(content_stack, ph, page_names[i]);
-    }
+    GtkWidget *settings_page = school_settings_view_new();
+    gtk_stack_add_named(content_stack, settings_page, page_names[NAV_SETTINGS]);
 
     /* ── Status bar ─────────────────────────────────────────────── */
     GtkWidget *status_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
