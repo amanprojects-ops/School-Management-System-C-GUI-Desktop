@@ -232,6 +232,27 @@ target_link_libraries(test_settings PRIVATE
     PkgConfig::SQLITE3
 )
 
+# End-to-End System Integration test executable
+add_executable(test_system_integration
+    tests/test_system_integration.c
+    src/modules/student.c
+    src/modules/teacher.c
+    src/modules/classes.c
+    src/modules/attendance.c
+    src/modules/fees.c
+    src/modules/exams.c
+    src/modules/timetable.c
+    src/modules/reports.c
+    src/modules/settings.c
+    src/database.c
+)
+target_include_directories(test_system_integration PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+target_link_libraries(test_system_integration PRIVATE
+    PkgConfig::SQLITE3
+)
+
 # Install rules
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin)
 install(DIRECTORY assets/ DESTINATION bin/assets)
