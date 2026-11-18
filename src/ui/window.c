@@ -14,6 +14,7 @@
 #include "ui/fees_view.h"
 #include "ui/exams_view.h"
 #include "ui/timetable_view.h"
+#include "ui/reports_view.h"
 #include "ui/login.h"
 #include "auth/auth.h"
 #include <stdio.h>
@@ -172,7 +173,10 @@ void school_window_new(GtkApplication *app)
     GtkWidget *timetable_page = school_timetable_view_new();
     gtk_stack_add_named(content_stack, timetable_page, page_names[NAV_TIMETABLE]);
 
-    for (int i = 8; i < NAV_PAGE_COUNT; i++) {
+    GtkWidget *reports_page = school_reports_view_new();
+    gtk_stack_add_named(content_stack, reports_page, page_names[NAV_REPORTS]);
+
+    for (int i = 9; i < NAV_PAGE_COUNT; i++) {
         GtkWidget *ph = make_placeholder_page(page_titles[i]);
         gtk_stack_add_named(content_stack, ph, page_names[i]);
     }
