@@ -29,6 +29,7 @@ set(SOURCES
     src/modules/classes.c
     src/modules/attendance.c
     src/modules/fees.c
+    src/modules/exams.c
     src/ui/login.c
     src/ui/window.c
     src/ui/sidebar.c
@@ -39,6 +40,7 @@ set(SOURCES
     src/ui/classes_view.c
     src/ui/attendance_view.c
     src/ui/fees_view.c
+    src/ui/exams_view.c
 )
 
 # Build executable
@@ -169,6 +171,19 @@ target_include_directories(test_fees PRIVATE
     ${CMAKE_SOURCE_DIR}/include
 )
 target_link_libraries(test_fees PRIVATE
+    PkgConfig::SQLITE3
+)
+
+# Exams unit test executable
+add_executable(test_exams
+    tests/test_exams.c
+    src/modules/exams.c
+    src/database.c
+)
+target_include_directories(test_exams PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+target_link_libraries(test_exams PRIVATE
     PkgConfig::SQLITE3
 )
 
