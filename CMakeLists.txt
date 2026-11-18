@@ -32,6 +32,7 @@ set(SOURCES
     src/modules/exams.c
     src/modules/timetable.c
     src/modules/reports.c
+    src/modules/settings.c
     src/ui/login.c
     src/ui/window.c
     src/ui/sidebar.c
@@ -45,6 +46,7 @@ set(SOURCES
     src/ui/exams_view.c
     src/ui/timetable_view.c
     src/ui/reports_view.c
+    src/ui/settings_view.c
 )
 
 # Build executable
@@ -214,6 +216,19 @@ target_include_directories(test_reports PRIVATE
     ${CMAKE_SOURCE_DIR}/include
 )
 target_link_libraries(test_reports PRIVATE
+    PkgConfig::SQLITE3
+)
+
+# Settings unit test executable
+add_executable(test_settings
+    tests/test_settings.c
+    src/modules/settings.c
+    src/database.c
+)
+target_include_directories(test_settings PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+target_link_libraries(test_settings PRIVATE
     PkgConfig::SQLITE3
 )
 
