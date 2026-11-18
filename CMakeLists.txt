@@ -11,16 +11,19 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(-Wall -Wextra -Wpedantic -Wno-unused-parameter -Wno-overlength-strings)
 endif()
 
-# Find GTK4 and SQLite3 via pkg-config
+# Find GTK4, SQLite3, and OpenSSL Crypto via pkg-config
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GTK4 REQUIRED IMPORTED_TARGET gtk4)
 pkg_check_modules(SQLITE3 REQUIRED IMPORTED_TARGET sqlite3)
+pkg_check_modules(CRYPTO REQUIRED IMPORTED_TARGET libcrypto)
 
 # Source files
 set(SOURCES
     src/main.c
     src/app.c
     src/database.c
+    src/auth/auth.c
+    src/ui/login.c
     src/ui/window.c
     src/ui/sidebar.c
     src/ui/header.c
@@ -34,12 +37,14 @@ add_executable(${PROJECT_NAME} WIN32 ${SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/include/ui
+    ${CMAKE_SOURCE_DIR}/include/auth
 )
 
-# Link GTK4 and SQLite3
+# Link GTK4, SQLite3, and Crypto
 target_link_libraries(${PROJECT_NAME} PRIVATE
     PkgConfig::GTK4
     PkgConfig::SQLITE3
+    PkgConfig::CRYPTO
 )
 
 # Copy assets to build directory
@@ -60,6 +65,21 @@ target_include_directories(test_database PRIVATE
 )
 target_link_libraries(test_database PRIVATE
     PkgConfig::SQLITE3
+)
+
+# Auth unit test executable
+add_executable(test_auth
+    tests/test_auth.c
+    src/auth/auth.c
+    src/database.c
+)
+target_include_directories(test_auth PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include/auth
+)
+target_link_libraries(test_auth PRIVATE
+    PkgConfig::SQLITE3
+    PkgConfig::CRYPTO
 )
 
 # Install rules
