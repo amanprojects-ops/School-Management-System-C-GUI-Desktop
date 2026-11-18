@@ -49,7 +49,27 @@ cmake --build .
 - [x] Phase 12: Reports and Export
 - [x] Phase 13: Settings, Backup & Restore
 - [x] Phase 14: Testing and Bug Fixing
-- [ ] Phase 15: Windows EXE Packaging and Installer
+- [x] Phase 15: Windows EXE Packaging and Installer
+
+## Testing
+
+Run all 13 unit and end-to-end integration test suites:
+
+```bash
+bash run_tests.sh
+```
+
+## Packaging for Windows Distribution
+
+Create a self-contained portable Windows x64 release package with all required DLLs, assets, and GSettings schemas:
+
+```bash
+bash scripts/package_windows.sh
+```
+
+Distribution output:
+- `dist/SchoolCMS-v1.0.0-windows-x64/` (standalone portable directory with `Run_SchoolCMS.bat`)
+- `dist/SchoolCMS-v1.0.0-windows-x64.zip` (standalone compressed release archive)
 
 ## License
 
