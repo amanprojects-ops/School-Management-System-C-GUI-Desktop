@@ -7,11 +7,15 @@
 #include "ui/sidebar.h"
 #include "ui/header.h"
 #include "ui/dashboard.h"
+#include "ui/login.h"
+#include "auth/auth.h"
 #include <stdio.h>
 
 /* ── Module state ─────────────────────────────────────────────────── */
 
+static GtkStack *root_stack = NULL;
 static GtkStack *content_stack = NULL;
+static GtkWidget *login_view = NULL;
 
 /* Page names matching NavPage enum order. */
 static const char *page_names[NAV_PAGE_COUNT] = {
@@ -40,6 +44,19 @@ static const char *page_titles[NAV_PAGE_COUNT] = {
     "Reports",
     "Settings"
 };
+
+/* ── Callbacks ────────────────────────────────────────────────────── */
+
+static void on_login_success(gpointer user_data)
+{
+    (void)user_data;
+    const UserSession *sess = auth_get_session();
+    if (sess) {
+        school_header_update_user(sess->full_name, sess->role_name);
+    }
+    school_window_show_app();
+    school_window_navigate(NAV_DASHBOARD);
+}
 
 /* ── Placeholder page builder ─────────────────────────────────────── */
 
@@ -86,19 +103,30 @@ void school_window_new(GtkApplication *app)
     gtk_widget_set_size_request(window, WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT);
     gtk_widget_add_css_class(window, "main-window");
 
-    /* ── Root horizontal layout: sidebar | right pane ───────────── */
-    GtkWidget *root_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_window_set_child(GTK_WINDOW(window), root_box);
+    /* ── Outer Root Stack (switches between Login and Main App Shell) ── */
+    root_stack = GTK_STACK(gtk_stack_new());
+    gtk_stack_set_transition_type(root_stack, GTK_STACK_TRANSITION_TYPE_CROSSFADE);
+    gtk_stack_set_transition_duration(root_stack, 250);
+    gtk_window_set_child(GTK_WINDOW(window), GTK_WIDGET(root_stack));
+
+    /* 1. Login View */
+    login_view = school_login_view_new(on_login_success, NULL);
+    gtk_stack_add_named(root_stack, login_view, "login");
+
+    /* 2. Main App Shell Layout */
+    GtkWidget *app_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_widget_set_hexpand(app_box, TRUE);
+    gtk_widget_set_vexpand(app_box, TRUE);
 
     /* Sidebar */
     GtkWidget *sidebar = school_sidebar_new();
-    gtk_box_append(GTK_BOX(root_box), sidebar);
+    gtk_box_append(GTK_BOX(app_box), sidebar);
 
     /* Right pane: header on top, content below */
     GtkWidget *right_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_widget_set_hexpand(right_box, TRUE);
     gtk_widget_set_vexpand(right_box, TRUE);
-    gtk_box_append(GTK_BOX(root_box), right_box);
+    gtk_box_append(GTK_BOX(app_box), right_box);
 
     /* Header */
     GtkWidget *header = school_header_new();
@@ -121,27 +149,47 @@ void school_window_new(GtkApplication *app)
         gtk_stack_add_named(content_stack, ph, page_names[i]);
     }
 
-    /* Start on the dashboard */
-    gtk_stack_set_visible_child_name(content_stack, "dashboard");
-    school_sidebar_set_active(NAV_DASHBOARD);
-
     /* ── Status bar ─────────────────────────────────────────────── */
     GtkWidget *status_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
     gtk_widget_add_css_class(status_bar, "status-bar");
 
-    GtkWidget *status_label = gtk_label_new("SchoolCMS v1.0.0  •  Ready");
+    GtkWidget *status_label = gtk_label_new("SchoolCMS v1.0.0  •  Authenticated");
     gtk_widget_set_halign(status_label, GTK_ALIGN_START);
     gtk_widget_set_hexpand(status_label, TRUE);
     gtk_box_append(GTK_BOX(status_bar), status_label);
 
-    GtkWidget *status_right = gtk_label_new("Phase 1 — Application Shell");
+    GtkWidget *status_right = gtk_label_new("Phase 3 — Authentication");
     gtk_widget_set_halign(status_right, GTK_ALIGN_END);
     gtk_box_append(GTK_BOX(status_bar), status_right);
 
     gtk_box_append(GTK_BOX(right_box), status_bar);
 
+    gtk_stack_add_named(root_stack, app_box, "app");
+
+    /* Initial state: if authenticated show app, else show login */
+    if (auth_is_logged_in()) {
+        school_window_show_app();
+    } else {
+        school_window_show_login();
+    }
+
     /* Show */
     gtk_window_present(GTK_WINDOW(window));
+}
+
+void school_window_show_login(void)
+{
+    if (root_stack && login_view) {
+        school_login_view_reset(login_view);
+        gtk_stack_set_visible_child_name(root_stack, "login");
+    }
+}
+
+void school_window_show_app(void)
+{
+    if (root_stack) {
+        gtk_stack_set_visible_child_name(root_stack, "app");
+    }
 }
 
 void school_window_navigate(NavPage page)
