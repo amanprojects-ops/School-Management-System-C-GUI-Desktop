@@ -5,11 +5,16 @@
  */
 
 #include "ui/header.h"
+#include "ui/window.h"
+#include "auth/auth.h"
 #include <string.h>
+#include <stdio.h>
 
 /* ── Module state ─────────────────────────────────────────────────── */
 
 static GtkWidget *breadcrumb_label = NULL;
+static GtkWidget *user_name_label = NULL;
+static GtkWidget *user_role_label = NULL;
 
 /* ── Callbacks ────────────────────────────────────────────────────── */
 
@@ -25,6 +30,14 @@ static void on_notification_clicked(GtkButton *btn, gpointer user_data)
     (void)btn;
     (void)user_data;
     g_print("Notifications clicked (not yet implemented)\n");
+}
+
+static void on_logout_clicked(GtkButton *btn, gpointer user_data)
+{
+    (void)btn;
+    (void)user_data;
+    auth_logout();
+    school_window_show_login();
 }
 
 /* ── Public API ───────────────────────────────────────────────────── */
@@ -76,11 +89,27 @@ GtkWidget *school_header_new(void)
     gtk_image_set_pixel_size(GTK_IMAGE(avatar), 28);
     gtk_box_append(GTK_BOX(user_box), avatar);
 
-    GtkWidget *user_name = gtk_label_new("Administrator");
-    gtk_widget_add_css_class(user_name, "header-username");
-    gtk_box_append(GTK_BOX(user_box), user_name);
+    GtkWidget *user_info = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+    user_name_label = gtk_label_new("Administrator");
+    gtk_label_set_xalign(GTK_LABEL(user_name_label), 0.0f);
+    gtk_widget_add_css_class(user_name_label, "header-username");
+    gtk_box_append(GTK_BOX(user_info), user_name_label);
 
+    user_role_label = gtk_label_new("ADMIN");
+    gtk_label_set_xalign(GTK_LABEL(user_role_label), 0.0f);
+    gtk_widget_add_css_class(user_role_label, "header-role-badge");
+    gtk_box_append(GTK_BOX(user_info), user_role_label);
+
+    gtk_box_append(GTK_BOX(user_box), user_info);
     gtk_box_append(GTK_BOX(row), user_box);
+
+    /* Logout button */
+    GtkWidget *logout_btn = gtk_button_new_from_icon_name("system-log-out-symbolic");
+    gtk_button_set_has_frame(GTK_BUTTON(logout_btn), FALSE);
+    gtk_widget_add_css_class(logout_btn, "header-icon-btn");
+    gtk_widget_set_tooltip_text(logout_btn, "Sign Out");
+    g_signal_connect(logout_btn, "clicked", G_CALLBACK(on_logout_clicked), NULL);
+    gtk_box_append(GTK_BOX(row), logout_btn);
 
     gtk_box_append(GTK_BOX(header), row);
 
@@ -100,4 +129,14 @@ void school_header_set_breadcrumb(const char *text)
     snprintf(buf, sizeof(buf),
              "<span weight='bold' size='large'>%s</span>", text);
     gtk_label_set_markup(GTK_LABEL(breadcrumb_label), buf);
+}
+
+void school_header_update_user(const char *full_name, const char *role_name)
+{
+    if (user_name_label && full_name) {
+        gtk_label_set_text(GTK_LABEL(user_name_label), full_name);
+    }
+    if (user_role_label && role_name) {
+        gtk_label_set_text(GTK_LABEL(user_role_label), role_name);
+    }
 }
