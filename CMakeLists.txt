@@ -24,11 +24,13 @@ set(SOURCES
     src/database.c
     src/auth/auth.c
     src/modules/dashboard.c
+    src/modules/student.c
     src/ui/login.c
     src/ui/window.c
     src/ui/sidebar.c
     src/ui/header.c
     src/ui/dashboard.c
+    src/ui/student_view.c
 )
 
 # Build executable
@@ -95,6 +97,19 @@ target_include_directories(test_dashboard PRIVATE
 target_link_libraries(test_dashboard PRIVATE
     PkgConfig::SQLITE3
     PkgConfig::GTK4
+)
+
+# Student unit test executable
+add_executable(test_student
+    tests/test_student.c
+    src/modules/student.c
+    src/database.c
+)
+target_include_directories(test_student PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+target_link_libraries(test_student PRIVATE
+    PkgConfig::SQLITE3
 )
 
 # Install rules
