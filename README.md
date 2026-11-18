@@ -47,7 +47,7 @@ cmake --build .
 - [x] Phase 10: Examination & Results
 - [x] Phase 11: Timetable
 - [x] Phase 12: Reports and Export
-- [ ] Phase 13: Settings, Backup & Restore
+- [x] Phase 13: Settings, Backup & Restore
 - [ ] Phase 14: Testing and Bug Fixing
 - [ ] Phase 15: Windows EXE Packaging and Installer
 
