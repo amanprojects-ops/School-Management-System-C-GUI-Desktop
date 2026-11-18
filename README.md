@@ -41,7 +41,7 @@ cmake --build .
 - [x] Phase 4: Main Dashboard UI (live data)
 - [x] Phase 5: Student Management CRUD
 - [x] Phase 6: Teacher & Staff Management
-- [ ] Phase 7: Class & Section Management
+- [x] Phase 7: Class & Section Management
 - [ ] Phase 8: Attendance System
 - [ ] Phase 9: Fee Management
 - [ ] Phase 10: Examination & Results
