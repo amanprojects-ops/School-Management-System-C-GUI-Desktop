@@ -8,6 +8,7 @@
 #include "ui/header.h"
 #include "ui/dashboard.h"
 #include "ui/student_view.h"
+#include "ui/teacher_view.h"
 #include "ui/login.h"
 #include "auth/auth.h"
 #include <stdio.h>
@@ -141,14 +142,17 @@ void school_window_new(GtkApplication *app)
     gtk_widget_set_vexpand(GTK_WIDGET(content_stack), TRUE);
     gtk_box_append(GTK_BOX(right_box), GTK_WIDGET(content_stack));
 
-    /* Add pages ── dashboard and students are real, the rest are placeholders. */
+    /* Add pages ── dashboard, students, teachers are real, the rest are placeholders. */
     GtkWidget *dashboard_page = school_dashboard_new();
     gtk_stack_add_named(content_stack, dashboard_page, page_names[NAV_DASHBOARD]);
 
     GtkWidget *students_page = school_student_view_new();
     gtk_stack_add_named(content_stack, students_page, page_names[NAV_STUDENTS]);
 
-    for (int i = 2; i < NAV_PAGE_COUNT; i++) {
+    GtkWidget *teachers_page = school_teacher_view_new();
+    gtk_stack_add_named(content_stack, teachers_page, page_names[NAV_TEACHERS]);
+
+    for (int i = 3; i < NAV_PAGE_COUNT; i++) {
         GtkWidget *ph = make_placeholder_page(page_titles[i]);
         gtk_stack_add_named(content_stack, ph, page_names[i]);
     }
