@@ -10,12 +10,15 @@
 #include <gtk/gtk.h>
 
 /**
- * @brief Create the dashboard page widget.
- *
- * Returns a scrollable container with stat cards, quick-action
- * buttons, and placeholder areas for charts and recent data.
- * @return A GtkWidget* for the dashboard page.
+ * @brief Create the dashboard page widget with dynamic cards, Cairo charts, and tables.
+ * @return GtkWidget* for the dashboard page.
  */
 GtkWidget *school_dashboard_new(void);
+
+/**
+ * @brief Refresh dashboard statistics and redraw charts.
+ * @param dashboard_widget The widget returned by school_dashboard_new.
+ */
+void school_dashboard_refresh(GtkWidget *dashboard_widget);
 
 #endif /* SCHOOLCMS_UI_DASHBOARD_H */
