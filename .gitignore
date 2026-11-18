@@ -21,3 +21,9 @@ Thumbs.db
 *.db
 *.db-journal
 *.db-wal
+*.db-shm
+
+# Distribution and packaging
+dist/
+exports/
+backups/
