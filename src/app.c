@@ -5,6 +5,7 @@
 
 #include "app.h"
 #include "database.h"
+#include "auth/auth.h"
 #include "ui/window.h"
 #include <stdio.h>
 
@@ -68,6 +69,9 @@ static void on_activate(GtkApplication *app, gpointer user_data)
     if (db_init(NULL) != DB_SUCCESS) {
         g_printerr("Failed to initialize database!\n");
     }
+
+    /* Initialize authentication subsystem */
+    auth_init();
 
     school_app_load_css();
     school_window_new(app);
