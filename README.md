@@ -43,7 +43,7 @@ cmake --build .
 - [x] Phase 6: Teacher & Staff Management
 - [x] Phase 7: Class & Section Management
 - [x] Phase 8: Attendance System
-- [ ] Phase 9: Fee Management
+- [x] Phase 9: Fee Management
 - [ ] Phase 10: Examination & Results
 - [ ] Phase 11: Timetable
 - [ ] Phase 12: Reports and Export
