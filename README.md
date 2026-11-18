@@ -36,7 +36,7 @@ cmake --build .
 ## Development Phases
 
 - [x] Phase 1: Project Setup and GTK4 Application Shell
-- [ ] Phase 2: Database and Migration System
+- [x] Phase 2: Database and Migration System
 - [ ] Phase 3: Login and Authentication
 - [ ] Phase 4: Main Dashboard UI (live data)
 - [ ] Phase 5: Student Management CRUD
