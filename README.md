@@ -46,7 +46,7 @@ cmake --build .
 - [x] Phase 9: Fee Management
 - [x] Phase 10: Examination & Results
 - [x] Phase 11: Timetable
-- [ ] Phase 12: Reports and Export
+- [x] Phase 12: Reports and Export
 - [ ] Phase 13: Settings, Backup & Restore
 - [ ] Phase 14: Testing and Bug Fixing
 - [ ] Phase 15: Windows EXE Packaging and Installer
