@@ -1,0 +1,78 @@
+/**
+ * @file settings.h
+ * @brief Institutional configuration, theme switching, and SQLite backup/restore services.
+ */
+
+#ifndef SCHOOLCMS_SETTINGS_H
+#define SCHOOLCMS_SETTINGS_H
+
+#include <stdbool.h>
+#include <stddef.h>
+
+/**
+ * @brief Institutional School Settings Model
+ */
+typedef struct {
+    char school_name[128];
+    char school_address[256];
+    char school_phone[32];
+    char school_email[128];
+    char school_website[128];
+    char principal_name[128];
+    char currency_symbol[16];
+    char theme_mode[16];        /* "light" or "dark" */
+    int current_academic_year_id;
+    char current_academic_year_name[32];
+} SchoolSettings;
+
+/**
+ * @brief Activity Audit Log Item
+ */
+typedef struct {
+    int id;
+    int user_id;
+    char action[64];
+    char module[64];
+    char details[256];
+    char ip_address[48];
+    char created_at[32];
+} AuditLogEntry;
+
+/* ── Service Functions ────────────────────────────────────────────── */
+
+/**
+ * @brief Load full institutional settings into structure.
+ */
+bool settings_service_get(SchoolSettings *out_settings);
+
+/**
+ * @brief Save institutional settings.
+ */
+bool settings_service_save(const SchoolSettings *settings);
+
+/**
+ * @brief Retrieve a single setting string by key.
+ */
+bool settings_service_get_value(const char *key, char *out_val, size_t val_size);
+
+/**
+ * @brief Save a single key-value setting.
+ */
+bool settings_service_set_value(const char *key, const char *value);
+
+/**
+ * @brief Trigger an online database backup to destination path.
+ */
+bool settings_service_create_backup(const char *dest_path);
+
+/**
+ * @brief Restore active database from backup file.
+ */
+bool settings_service_restore_backup(const char *src_path);
+
+/**
+ * @brief Retrieve recent audit activity logs.
+ */
+bool settings_service_get_recent_logs(AuditLogEntry *out_logs, int max_items, int *out_count);
+
+#endif /* SCHOOLCMS_SETTINGS_H */
