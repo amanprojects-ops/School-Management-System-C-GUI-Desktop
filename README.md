@@ -44,7 +44,7 @@ cmake --build .
 - [x] Phase 7: Class & Section Management
 - [x] Phase 8: Attendance System
 - [x] Phase 9: Fee Management
-- [ ] Phase 10: Examination & Results
+- [x] Phase 10: Examination & Results
 - [ ] Phase 11: Timetable
 - [ ] Phase 12: Reports and Export
 - [ ] Phase 13: Settings, Backup & Restore
