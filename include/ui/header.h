@@ -20,4 +20,11 @@ GtkWidget *school_header_new(void);
  */
 void school_header_set_breadcrumb(const char *text);
 
+/**
+ * @brief Update the displayed user name and role badge.
+ * @param full_name User's display name.
+ * @param role_name Role name (e.g. "ADMIN", "TEACHER").
+ */
+void school_header_update_user(const char *full_name, const char *role_name);
+
 #endif /* SCHOOLCMS_UI_HEADER_H */
