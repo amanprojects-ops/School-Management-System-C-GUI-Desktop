@@ -30,6 +30,7 @@ set(SOURCES
     src/modules/attendance.c
     src/modules/fees.c
     src/modules/exams.c
+    src/modules/timetable.c
     src/ui/login.c
     src/ui/window.c
     src/ui/sidebar.c
@@ -41,6 +42,7 @@ set(SOURCES
     src/ui/attendance_view.c
     src/ui/fees_view.c
     src/ui/exams_view.c
+    src/ui/timetable_view.c
 )
 
 # Build executable
@@ -184,6 +186,19 @@ target_include_directories(test_exams PRIVATE
     ${CMAKE_SOURCE_DIR}/include
 )
 target_link_libraries(test_exams PRIVATE
+    PkgConfig::SQLITE3
+)
+
+# Timetable unit test executable
+add_executable(test_timetable
+    tests/test_timetable.c
+    src/modules/timetable.c
+    src/database.c
+)
+target_include_directories(test_timetable PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+target_link_libraries(test_timetable PRIVATE
     PkgConfig::SQLITE3
 )
 
