@@ -10,6 +10,7 @@
 #include "ui/student_view.h"
 #include "ui/teacher_view.h"
 #include "ui/classes_view.h"
+#include "ui/attendance_view.h"
 #include "ui/login.h"
 #include "auth/auth.h"
 #include <stdio.h>
@@ -156,7 +157,10 @@ void school_window_new(GtkApplication *app)
     GtkWidget *classes_page = school_classes_view_new();
     gtk_stack_add_named(content_stack, classes_page, page_names[NAV_CLASSES]);
 
-    for (int i = 4; i < NAV_PAGE_COUNT; i++) {
+    GtkWidget *attendance_page = school_attendance_view_new();
+    gtk_stack_add_named(content_stack, attendance_page, page_names[NAV_ATTENDANCE]);
+
+    for (int i = 5; i < NAV_PAGE_COUNT; i++) {
         GtkWidget *ph = make_placeholder_page(page_titles[i]);
         gtk_stack_add_named(content_stack, ph, page_names[i]);
     }
