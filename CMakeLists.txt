@@ -26,6 +26,7 @@ set(SOURCES
     src/modules/dashboard.c
     src/modules/student.c
     src/modules/teacher.c
+    src/modules/classes.c
     src/ui/login.c
     src/ui/window.c
     src/ui/sidebar.c
@@ -33,6 +34,7 @@ set(SOURCES
     src/ui/dashboard.c
     src/ui/student_view.c
     src/ui/teacher_view.c
+    src/ui/classes_view.c
 )
 
 # Build executable
@@ -124,6 +126,19 @@ target_include_directories(test_teacher PRIVATE
     ${CMAKE_SOURCE_DIR}/include
 )
 target_link_libraries(test_teacher PRIVATE
+    PkgConfig::SQLITE3
+)
+
+# Classes unit test executable
+add_executable(test_classes
+    tests/test_classes.c
+    src/modules/classes.c
+    src/database.c
+)
+target_include_directories(test_classes PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+target_link_libraries(test_classes PRIVATE
     PkgConfig::SQLITE3
 )
 
