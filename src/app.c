@@ -36,6 +36,9 @@ void school_app_load_css(void)
      */
     const char *paths[] = {
         "assets/styles/main.css",
+        "../assets/styles/main.css",
+        "../../assets/styles/main.css",
+        "SchoolCMS/assets/styles/main.css",
         NULL  /* sentinel */
     };
 
