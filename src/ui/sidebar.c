@@ -21,7 +21,7 @@ static const SidebarItem sidebar_items[] = {
     { "avatar-default-symbolic",      "Teachers",    NAV_TEACHERS   },
     { "view-list-symbolic",           "Classes",     NAV_CLASSES    },
     { "document-open-recent-symbolic","Attendance",  NAV_ATTENDANCE },
-    { "wallet-symbolic",              "Fees",        NAV_FEES       },
+    { "accessories-calculator-symbolic", "Fees",     NAV_FEES       },
     { "document-edit-symbolic",       "Exams",       NAV_EXAMS      },
     { "x-office-calendar-symbolic",   "Timetable",   NAV_TIMETABLE  },
     { "document-print-symbolic",      "Reports",     NAV_REPORTS    },
