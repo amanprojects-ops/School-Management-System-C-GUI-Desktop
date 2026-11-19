@@ -157,7 +157,7 @@ void school_window_new(GtkApplication *app)
     gtk_widget_set_hexpand(status_label, TRUE);
     gtk_box_append(GTK_BOX(status_bar), status_label);
 
-    GtkWidget *status_right = gtk_label_new("Phase 3 — Authentication");
+    GtkWidget *status_right = gtk_label_new("School Management System  •  Pure C11 & GTK4");
     gtk_widget_set_halign(status_right, GTK_ALIGN_END);
     gtk_box_append(GTK_BOX(status_bar), status_right);
 
