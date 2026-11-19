@@ -71,7 +71,21 @@ def main():
     print("Resolving and collecting DLL dependencies...")
     visited_dlls = set()
     queue = [TARGET_DIR / "SchoolCMS.exe"]
-    copied_count = 0
+
+    # Explicitly include SVG renderer and GDK Pixbuf loaders in dependency resolution
+    rsvg_dll = UCRT64_BIN / "librsvg-2-2.dll"
+    if rsvg_dll.exists():
+        dst_rsvg = TARGET_DIR / "librsvg-2-2.dll"
+        shutil.copy2(rsvg_dll, dst_rsvg)
+        queue.append(dst_rsvg)
+        visited_dlls.add("librsvg-2-2.dll")
+
+    loaders_dir = UCRT64_LIB / "gdk-pixbuf-2.0" / "2.10.0" / "loaders"
+    if loaders_dir.exists():
+        for loader in loaders_dir.glob("*.dll"):
+            queue.append(loader)
+
+    copied_count = len(visited_dlls)
 
     while queue:
         current_file = queue.pop(0)
@@ -136,10 +150,34 @@ def main():
         if loaders_cache.exists():
             shutil.copy2(loaders_cache, pixbuf_dst / "loaders.cache")
 
+    # 5.5. Copy Icon Themes
+    icons_dst = TARGET_DIR / "share" / "icons"
+    icons_dst.mkdir(parents=True, exist_ok=True)
+
+    adwaita_src = UCRT64_SHARE / "icons" / "Adwaita"
+    if adwaita_src.exists():
+        print("Copying Adwaita icon theme...")
+        adw_dst = icons_dst / "Adwaita"
+        adw_dst.mkdir(parents=True, exist_ok=True)
+        if (adwaita_src / "symbolic").exists():
+            shutil.copytree(adwaita_src / "symbolic", adw_dst / "symbolic", dirs_exist_ok=True)
+        if (adwaita_src / "index.theme").exists():
+            shutil.copy2(adwaita_src / "index.theme", adw_dst / "index.theme")
+        if (adwaita_src / "icon-theme.cache").exists():
+            shutil.copy2(adwaita_src / "icon-theme.cache", adw_dst / "icon-theme.cache")
+
+    hicolor_src = UCRT64_SHARE / "icons" / "hicolor"
+    if hicolor_src.exists():
+        print("Copying hicolor icon theme...")
+        shutil.copytree(hicolor_src, icons_dst / "hicolor", dirs_exist_ok=True)
+
     # 6. Create Launchers & Docs
     print("Creating launch scripts and distribution documentation...")
     bat_content = """@echo off
 cd /d "%~dp0"
+set "XDG_DATA_DIRS=%~dp0share;%XDG_DATA_DIRS%"
+set "GSETTINGS_SCHEMA_DIR=%~dp0share\\glib-2.0\\schemas"
+set "GDK_PIXBUF_MODULE_FILE=%~dp0lib\\gdk-pixbuf-2.0\\2.10.0\\loaders.cache"
 start "" "%~dp0SchoolCMS.exe"
 """
     with open(TARGET_DIR / "Run_SchoolCMS.bat", "w", encoding="utf-8") as f:
