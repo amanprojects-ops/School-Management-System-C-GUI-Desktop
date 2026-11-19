@@ -119,7 +119,7 @@ GtkWidget *school_sidebar_new(void)
     GtkWidget *ver_sep = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_box_append(GTK_BOX(bottom), ver_sep);
 
-    GtkWidget *ver_label = gtk_label_new("v1.0.0 — Phase 1");
+    GtkWidget *ver_label = gtk_label_new("SchoolCMS v1.0.0");
     gtk_widget_add_css_class(ver_label, "sidebar-version");
     gtk_box_append(GTK_BOX(bottom), ver_label);
 
