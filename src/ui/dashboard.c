@@ -444,7 +444,7 @@ GtkWidget *school_dashboard_new(void)
     gtk_box_append(GTK_BOX(cards_row2),
         make_stat_card("document-open-recent-symbolic", "Today's Attendance", "0%", "card-teal", &ui->val_attendance));
     gtk_box_append(GTK_BOX(cards_row2),
-        make_stat_card("wallet-symbolic", "Fee Collection (Month)", "₹0.00", "card-green", &ui->val_fee_collected));
+        make_stat_card("accessories-calculator-symbolic", "Fee Collection (Month)", "₹0.00", "card-green", &ui->val_fee_collected));
     gtk_box_append(GTK_BOX(cards_row2),
         make_stat_card("dialog-warning-symbolic", "Pending Fees", "₹0.00", "card-red", &ui->val_fee_pending));
     gtk_box_append(GTK_BOX(cards_row2),
@@ -454,7 +454,7 @@ GtkWidget *school_dashboard_new(void)
     /* Quick Actions */
     GtkWidget *qa_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
     gtk_box_append(GTK_BOX(qa_box), make_quick_action("list-add-symbolic", "Add Student", NAV_STUDENTS));
-    gtk_box_append(GTK_BOX(qa_box), make_quick_action("wallet-symbolic", "Collect Fees", NAV_FEES));
+    gtk_box_append(GTK_BOX(qa_box), make_quick_action("accessories-calculator-symbolic", "Collect Fees", NAV_FEES));
     gtk_box_append(GTK_BOX(qa_box), make_quick_action("document-open-recent-symbolic", "Mark Attendance", NAV_ATTENDANCE));
     gtk_box_append(GTK_BOX(qa_box), make_quick_action("avatar-default-symbolic", "Add Teacher", NAV_TEACHERS));
     gtk_box_append(GTK_BOX(qa_box), make_quick_action("document-print-symbolic", "Generate Report", NAV_REPORTS));
