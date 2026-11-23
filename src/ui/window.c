@@ -73,7 +73,7 @@ void school_window_new(GtkApplication *app)
 {
     /* ── Main window ────────────────────────────────────────────── */
     GtkWidget *window = gtk_application_window_new(app);
-    gtk_window_set_title(GTK_WINDOW(window), "SchoolCMS — School Management System");
+    gtk_window_set_title(GTK_WINDOW(window), "APCOACHING — School Management System");
     gtk_window_set_icon_name(GTK_WINDOW(window), "applications-education-symbolic");
     gtk_window_set_default_size(GTK_WINDOW(window),
                                 WINDOW_DEFAULT_WIDTH,
@@ -155,7 +155,7 @@ void school_window_new(GtkApplication *app)
     GtkWidget *status_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
     gtk_widget_add_css_class(status_bar, "status-bar");
 
-    GtkWidget *status_label = gtk_label_new("SchoolCMS v1.1.3  •  Authenticated");
+    GtkWidget *status_label = gtk_label_new("APCOACHING v1.1.3  •  Authenticated");
     gtk_widget_set_halign(status_label, GTK_ALIGN_START);
     gtk_widget_set_hexpand(status_label, TRUE);
     gtk_box_append(GTK_BOX(status_bar), status_label);
