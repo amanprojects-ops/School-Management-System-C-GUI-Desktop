@@ -411,3 +411,41 @@ bool student_service_get_page(const StudentFilter *filter, StudentPage *out_page
     out_page->count = count;
     return true;
 }
+
+bool student_service_get_for_id_cards(int class_id, int section_id, const char *status,
+                                     Student *out_students, int max_students, int *out_count)
+{
+    if (!out_students || max_students <= 0 || !out_count) return false;
+    *out_count = 0;
+
+    sqlite3 *db = db_get_handle();
+    if (!db) return false;
+
+    char sql[1024];
+    snprintf(sql, sizeof(sql),
+             "%s "
+             "WHERE (?1 = 0 OR s.class_id = ?1) "
+             "  AND (?2 = 0 OR s.section_id = ?2) "
+             "  AND (?3 = '' OR s.status = ?3) "
+             "ORDER BY s.class_id ASC, s.section_id ASC, s.roll_number ASC, s.full_name ASC "
+             "LIMIT ?4;",
+             STUDENT_SELECT_BASE);
+
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+
+    sqlite3_bind_int(stmt, 1, class_id);
+    sqlite3_bind_int(stmt, 2, section_id);
+    const char *status_filter = (status && strlen(status) > 0 && strcmp(status, "ALL") != 0 && strcmp(status, "All Statuses") != 0) ? status : "";
+    sqlite3_bind_text(stmt, 3, status_filter, -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 4, max_students);
+
+    int count = 0;
+    while (sqlite3_step(stmt) == SQLITE_ROW && count < max_students) {
+        read_student_row(stmt, &out_students[count]);
+        count++;
+    }
+    sqlite3_finalize(stmt);
+    *out_count = count;
+    return true;
+}
