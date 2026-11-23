@@ -202,6 +202,13 @@ void school_window_navigate(NavPage page)
     gtk_stack_set_visible_child_name(content_stack, page_names[page]);
     school_header_set_breadcrumb(page_titles[page]);
     school_sidebar_set_active((int)page);
+
+    if (page == NAV_SETTINGS) {
+        GtkWidget *settings_widget = gtk_stack_get_child_by_name(content_stack, page_names[NAV_SETTINGS]);
+        if (settings_widget) {
+            school_settings_view_reload(settings_widget);
+        }
+    }
 }
 
 GtkStack *school_window_get_content_stack(void)
