@@ -15,7 +15,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 BUILD_DIR = PROJECT_ROOT / "build"
 DIST_DIR = PROJECT_ROOT / "dist"
-PACKAGE_NAME = "SchoolCMS-v1.1.1-windows-x64"
+PACKAGE_NAME = "SchoolCMS-v1.1.2-windows-x64"
 TARGET_DIR = DIST_DIR / PACKAGE_NAME
 ZIP_FILE = DIST_DIR / f"{PACKAGE_NAME}.zip"
 
@@ -185,7 +185,7 @@ start "" "%~dp0SchoolCMS.exe"
         f.write(bat_content)
 
     readme_content = f"""# SchoolCMS — Standalone Portable Windows Release
-Version 1.1.1 (x86_64)
+Version 1.1.2 (x86_64)
 
 ## Running the Application
 Double-click `Run_SchoolCMS.bat` or `SchoolCMS.exe` to launch the application.
