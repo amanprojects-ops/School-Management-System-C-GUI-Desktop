@@ -74,6 +74,7 @@ void school_window_new(GtkApplication *app)
     /* ── Main window ────────────────────────────────────────────── */
     GtkWidget *window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(window), "SchoolCMS — School Management System");
+    gtk_window_set_icon_name(GTK_WINDOW(window), "applications-education-symbolic");
     gtk_window_set_default_size(GTK_WINDOW(window),
                                 WINDOW_DEFAULT_WIDTH,
                                 WINDOW_DEFAULT_HEIGHT);
