@@ -44,7 +44,7 @@ VERSION_FILES = [
         "replacements": [
             (
                 r'project\(SchoolCMS VERSION \d+\.\d+\.\d+ LANGUAGES C\)',
-                "project(SchoolCMS VERSION {new} LANGUAGES C)"
+                "project(APCOACHING VERSION {new} LANGUAGES C)"
             ),
         ],
     },
@@ -52,8 +52,8 @@ VERSION_FILES = [
         "path": "src/ui/sidebar.c",
         "replacements": [
             (
-                r'"SchoolCMS v\d+\.\d+\.\d+"',
-                '"SchoolCMS v{new}"'
+                r'"APCOACHING v\d+\.\d+\.\d+"',
+                '"APCOACHING v{new}"'
             ),
         ],
     },
@@ -61,8 +61,8 @@ VERSION_FILES = [
         "path": "src/ui/window.c",
         "replacements": [
             (
-                r'"SchoolCMS v\d+\.\d+\.\d+  •  Authenticated"',
-                '"SchoolCMS v{new}  \u2022  Authenticated"'
+                r'"APCOACHING v\d+\.\d+\.\d+  •  Authenticated"',
+                '"APCOACHING v{new}  \u2022  Authenticated"'
             ),
         ],
     },
@@ -70,12 +70,12 @@ VERSION_FILES = [
         "path": "scripts/package_windows.py",
         "replacements": [
             (
-                r'PACKAGE_NAME = "SchoolCMS-v\d+\.\d+\.\d+-windows-x64"',
-                'PACKAGE_NAME = "SchoolCMS-v{new}-windows-x64"'
+                r'PACKAGE_NAME = "APCOACHING-v\d+\.\d+\.\d+-windows-x64"',
+                'PACKAGE_NAME = "APCOACHING-v{new}-windows-x64"'
             ),
             (
-                r'SchoolCMS-v\d+\.\d+\.\d+-windows-x64\b(?!\")',
-                "SchoolCMS-v{new}-windows-x64"
+                r'APCOACHING-v\d+\.\d+\.\d+-windows-x64\b(?!\")',
+                "APCOACHING-v{new}-windows-x64"
             ),
             (
                 r'Version \d+\.\d+\.\d+ \(x86_64\)',
@@ -91,8 +91,8 @@ VERSION_FILES = [
                 '!define APP_VERSION "{new}"'
             ),
             (
-                r'SchoolCMS-v\d+\.\d+\.\d+-windows-x64',
-                "SchoolCMS-v{new}-windows-x64"
+                r'APCOACHING-v\d+\.\d+\.\d+-windows-x64',
+                "APCOACHING-v{new}-windows-x64"
             ),
         ],
     },
@@ -426,7 +426,7 @@ def main():
 
     # ── Step 2: Append README version history row ────────────────────
     print("Step 2: Appending version history row to README.md...")
-    history_message = args.message if args.message else f"SchoolCMS v{new_ver} release"
+    history_message = args.message if args.message else f"APCOACHING v{new_ver} release"
     append_readme_history(new_ver, history_message, args.dry_run)
     if "README.md" not in changed_files:
         changed_files.append("README.md")
@@ -450,7 +450,7 @@ def main():
 
     # ── Step 4: Create annotated git tag ─────────────────────────────
     print("Step 4: Creating annotated git tag...")
-    tag_message = args.message if args.message else f"SchoolCMS v{new_ver} release"
+    tag_message = args.message if args.message else f"APCOACHING v{new_ver} release"
     git_tag(new_ver, tag_message)
     print()
 
