@@ -152,6 +152,34 @@ static void test_student_filtering_and_pagination(void)
     printf("       Status filter returned 2 inactive students -> PASS\n");
 }
 
+static void test_student_id_cards_query(void)
+{
+    printf("[TEST] Testing student retrieval for ID card generation...\n");
+
+    Student cards[30];
+    int count = 0;
+
+    /* 1. All students across all classes */
+    assert(student_service_get_for_id_cards(0, 0, "", cards, 30, &count));
+    assert(count == 15);
+    printf("       Retrieved all 15 students for ID cards -> PASS\n");
+
+    /* 2. Active students only */
+    assert(student_service_get_for_id_cards(0, 0, "ACTIVE", cards, 30, &count));
+    assert(count == 13);
+    printf("       Retrieved 13 active students for ID cards -> PASS\n");
+
+    /* 3. Class 1 students */
+    assert(student_service_get_for_id_cards(1, 0, "ACTIVE", cards, 30, &count));
+    assert(count == 13);
+    printf("       Retrieved 13 active students for Class 1 -> PASS\n");
+
+    /* 4. Non-existent class */
+    assert(student_service_get_for_id_cards(999, 0, "", cards, 30, &count));
+    assert(count == 0);
+    printf("       Retrieved 0 students for non-existent class -> PASS\n");
+}
+
 int main(void)
 {
     printf("=========================================\n");
@@ -164,6 +192,7 @@ int main(void)
     test_admission_no_generation();
     test_student_crud();
     test_student_filtering_and_pagination();
+    test_student_id_cards_query();
 
     db_close();
     cleanup_files();
