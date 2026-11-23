@@ -9,6 +9,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <time.h>
+
+#ifdef _WIN32
+#include <direct.h>
+#define MKDIR(d) _mkdir(d)
+#else
+#define MKDIR(d) mkdir(d, 0755)
+#endif
 
 bool settings_service_get_value(const char *key, char *out_val, size_t val_size)
 {
@@ -126,6 +136,19 @@ bool settings_service_create_backup(const char *dest_path)
 {
     if (!dest_path || strlen(dest_path) == 0) return false;
 
+    /* Ensure parent directory exists if path contains a slash */
+    const char *last_slash = strrchr(dest_path, '/');
+    if (!last_slash) last_slash = strrchr(dest_path, '\\');
+    if (last_slash) {
+        char dir_buf[256];
+        size_t len = (size_t)(last_slash - dest_path);
+        if (len > 0 && len < sizeof(dir_buf)) {
+            strncpy(dir_buf, dest_path, len);
+            dir_buf[len] = '\0';
+            MKDIR(dir_buf);
+        }
+    }
+
     DbResult rc = db_backup(dest_path);
     if (rc != DB_SUCCESS) return false;
 
@@ -145,6 +168,88 @@ bool settings_service_restore_backup(const char *src_path)
     char details[256];
     snprintf(details, sizeof(details), "Restored database from backup: %s", src_path);
     db_log_activity(0, "RESTORE_BACKUP", "DATABASE", details);
+    return true;
+}
+
+static int backup_compare_desc(const void *a, const void *b)
+{
+    const BackupInfo *ba = (const BackupInfo *)a;
+    const BackupInfo *bb = (const BackupInfo *)b;
+    return strcmp(bb->created_at, ba->created_at);
+}
+
+bool settings_service_list_backups(BackupInfo *out_backups, int max_backups, int *out_count)
+{
+    if (!out_backups || max_backups <= 0 || !out_count) return false;
+    *out_count = 0;
+
+    const char *dir_path = "backups";
+    DIR *dir = opendir(dir_path);
+    if (!dir) {
+        MKDIR(dir_path);
+        return true;
+    }
+
+    int count = 0;
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL && count < max_backups) {
+        const char *name = entry->d_name;
+        size_t len = strlen(name);
+        if (len < 4 || strcmp(name + len - 3, ".db") != 0) {
+            continue;
+        }
+
+        BackupInfo *bi = &out_backups[count];
+        memset(bi, 0, sizeof(BackupInfo));
+
+        strncpy(bi->filename, name, sizeof(bi->filename) - 1);
+        snprintf(bi->filepath, sizeof(bi->filepath), "%s/%.127s", dir_path, name);
+
+        struct stat st;
+        if (stat(bi->filepath, &st) == 0) {
+            bi->file_size_bytes = (long)st.st_size;
+
+            time_t mtime = st.st_mtime;
+            struct tm *tm_info = localtime(&mtime);
+            if (tm_info) {
+                strftime(bi->created_at, sizeof(bi->created_at), "%Y-%m-%d %H:%M:%S", tm_info);
+            } else {
+                strncpy(bi->created_at, "Unknown", sizeof(bi->created_at) - 1);
+            }
+        }
+
+        count++;
+    }
+
+    closedir(dir);
+
+    if (count > 1) {
+        qsort(out_backups, count, sizeof(BackupInfo), backup_compare_desc);
+    }
+
+    *out_count = count;
+    return true;
+}
+
+bool settings_service_delete_backup(const char *filepath)
+{
+    if (!filepath || strlen(filepath) == 0) return false;
+
+    size_t len = strlen(filepath);
+    if (len < 4 || strcmp(filepath + len - 3, ".db") != 0) {
+        return false;
+    }
+    if (!strstr(filepath, "backups")) {
+        return false;
+    }
+
+    if (remove(filepath) != 0) {
+        return false;
+    }
+
+    char details[256];
+    snprintf(details, sizeof(details), "Deleted backup file: %s", filepath);
+    db_log_activity(0, "DELETE_BACKUP", "DATABASE", details);
     return true;
 }
 
