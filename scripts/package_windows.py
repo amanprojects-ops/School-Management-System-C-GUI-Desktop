@@ -15,7 +15,9 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 BUILD_DIR = PROJECT_ROOT / "build"
 DIST_DIR = PROJECT_ROOT / "dist"
-PACKAGE_NAME = "SchoolCMS-v1.1.3-windows-x64"
+APP_NAME = "APCOACHING"
+EXE_NAME = "APCOACHING.exe"
+PACKAGE_NAME = "APCOACHING-v1.1.3-windows-x64"
 TARGET_DIR = DIST_DIR / PACKAGE_NAME
 ZIP_FILE = DIST_DIR / f"{PACKAGE_NAME}.zip"
 
@@ -55,7 +57,7 @@ def get_imported_dlls(pe_path):
 
 def main():
     print(f"=== Packaging {PACKAGE_NAME} ===")
-    exe_path = BUILD_DIR / "SchoolCMS.exe"
+    exe_path = BUILD_DIR / EXE_NAME
     if not exe_path.exists():
         print(f"[ERROR] Executable not found at {exe_path}. Build the project first.")
         sys.exit(1)
@@ -64,14 +66,14 @@ def main():
         shutil.rmtree(TARGET_DIR)
     TARGET_DIR.mkdir(parents=True, exist_ok=True)
 
-    # 1. Copy SchoolCMS.exe
+    # 1. Copy executable
     print(f"Copying main executable: {exe_path.name}")
-    shutil.copy2(exe_path, TARGET_DIR / "SchoolCMS.exe")
+    shutil.copy2(exe_path, TARGET_DIR / EXE_NAME)
 
     # 2. Recursively find and copy DLL dependencies
     print("Resolving and collecting DLL dependencies...")
     visited_dlls = set()
-    queue = [TARGET_DIR / "SchoolCMS.exe"]
+    queue = [TARGET_DIR / EXE_NAME]
 
     # Explicitly include SVG renderer and GDK Pixbuf loaders in dependency resolution
     rsvg_dll = UCRT64_BIN / "librsvg-2-2.dll"
@@ -174,21 +176,21 @@ def main():
 
     # 6. Create Launchers & Docs
     print("Creating launch scripts and distribution documentation...")
-    bat_content = """@echo off
+    bat_content = f"""@echo off
 cd /d "%~dp0"
 set "XDG_DATA_DIRS=%~dp0share;%XDG_DATA_DIRS%"
 set "GSETTINGS_SCHEMA_DIR=%~dp0share\\glib-2.0\\schemas"
 set "GDK_PIXBUF_MODULE_FILE=%~dp0lib\\gdk-pixbuf-2.0\\2.10.0\\loaders.cache"
-start "" "%~dp0SchoolCMS.exe"
+start "" "%~dp0{EXE_NAME}"
 """
-    with open(TARGET_DIR / "Run_SchoolCMS.bat", "w", encoding="utf-8") as f:
+    with open(TARGET_DIR / f"Run_{APP_NAME}.bat", "w", encoding="utf-8") as f:
         f.write(bat_content)
 
-    readme_content = f"""# SchoolCMS — Standalone Portable Windows Release
+    readme_content = f"""# {APP_NAME} — Standalone Portable Windows Release
 Version 1.1.3 (x86_64)
 
 ## Running the Application
-Double-click `Run_SchoolCMS.bat` or `SchoolCMS.exe` to launch the application.
+Double-click `Run_{APP_NAME}.bat` or `{EXE_NAME}` to launch the application.
 
 Default Administrator Credentials:
 - Username: admin
