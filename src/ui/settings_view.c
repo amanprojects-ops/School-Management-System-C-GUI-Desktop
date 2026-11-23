@@ -569,6 +569,8 @@ GtkWidget *school_settings_view_new(void)
     SettingsWidgets *sw = g_new0(SettingsWidgets, 1);
 
     sw->root_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
+    gtk_widget_set_hexpand(sw->root_box, TRUE);
+    gtk_widget_set_vexpand(sw->root_box, TRUE);
     gtk_widget_set_margin_start(sw->root_box, 24);
     gtk_widget_set_margin_end(sw->root_box, 24);
     gtk_widget_set_margin_top(sw->root_box, 20);
@@ -612,8 +614,13 @@ GtkWidget *school_settings_view_new(void)
     /* Scrolled Window for Settings Layout */
     GtkWidget *scrolled = gtk_scrolled_window_new();
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+    gtk_widget_set_hexpand(scrolled, TRUE);
+    gtk_widget_set_vexpand(scrolled, TRUE);
+    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scrolled), 450);
 
     GtkWidget *content_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
+    gtk_widget_set_hexpand(content_box, TRUE);
+    gtk_widget_set_vexpand(content_box, TRUE);
     gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), content_box);
     gtk_box_append(GTK_BOX(sw->root_box), scrolled);
 
