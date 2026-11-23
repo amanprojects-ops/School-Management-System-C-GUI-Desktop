@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(SchoolCMS VERSION 1.1.3 LANGUAGES C)
+project(APCOACHING VERSION 1.1.3 LANGUAGES C)
 
 # C11 standard
 set(CMAKE_C_STANDARD 11)
