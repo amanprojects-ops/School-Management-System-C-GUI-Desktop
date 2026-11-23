@@ -4,7 +4,7 @@
 ; ==============================================================================
 
 !define APP_NAME "SchoolCMS"
-!define APP_VERSION "1.1.2"
+!define APP_VERSION "1.1.3"
 !define APP_PUBLISHER "SchoolCMS Development Team"
 !define APP_EXE "SchoolCMS.exe"
 
@@ -23,7 +23,7 @@ UninstPage instfiles
 Section "SchoolCMS Core (required)"
     SectionIn RO
     SetOutPath "$INSTDIR"
-    File /r "..\dist\SchoolCMS-v1.1.2-windows-x64\*.*"
+    File /r "..\dist\SchoolCMS-v1.1.3-windows-x64\*.*"
 
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SchoolCMS" "DisplayName" "SchoolCMS - School Management System"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SchoolCMS" "UninstallString" '"$INSTDIR\uninstall.exe"'
