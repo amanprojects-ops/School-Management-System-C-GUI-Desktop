@@ -6,7 +6,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6.svg?logo=windows)](https://microsoft.com/windows)
 [![Build](https://img.shields.io/badge/Build-CMake%20%7C%20Ninja-064F8C.svg?logo=cmake)](https://cmake.org/)
 [![Test Suite](https://img.shields.io/badge/Tests-13%2F13%20Passed%20(100%25)-2ea44f.svg)](file:///c:/apps/SchoolCMS/run_tests.sh)
-[![Release](https://img.shields.io/badge/Release-v1.0.0-brightgreen.svg)](file:///c:/apps/SchoolCMS/dist/)
+[![Release](https://img.shields.io/badge/Release-v1.1.0-brightgreen.svg)](file:///c:/apps/SchoolCMS/dist/)
 
 A modern, high-performance, offline-first institutional **School Management System** desktop application developed in pure **C (C11)**, **GTK4**, and **SQLite3** for Windows 10 and 11. Designed following enterprise SaaS visual standards, featuring real-time analytics, automated student and faculty rostering, conflict-free timetable scheduling, comprehensive fee accounting, examination grading, RFC 4180 CSV reporting, and online SQLite disaster recovery.
 
@@ -591,6 +591,8 @@ This repository maintains 32 annotated Git tags tracking each milestone from ini
 | `v1.0.0-rc1` | `1ccb083` | SchoolCMS v1.0.0-rc1 - Release Candidate with Portable Packaging |
 | `v1.0.0-ui-overhaul` | `63842d0` | Modern enterprise SaaS UI/UX overhaul & styling |
 | `v1.0.0` | `d63ee38` | Production release with full vector icon fix & 65 runtime DLLs |
+| `v1.0.1` | `b808c96` | Comprehensive installation, compilation & packaging documentation |
+| `v1.1.0` | `5936e61` | Database Backup Inventory, Dynamic Dropdowns, Student ID Cards & Responsive Auto-Resize |
 
 ---
 
