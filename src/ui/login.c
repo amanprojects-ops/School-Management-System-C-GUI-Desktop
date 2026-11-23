@@ -84,8 +84,15 @@ GtkWidget *school_login_view_new(LoginSuccessCallback on_success, gpointer user_
     gtk_widget_add_css_class(root, "login-page");
     gtk_widget_set_hexpand(root, TRUE);
     gtk_widget_set_vexpand(root, TRUE);
-    gtk_widget_set_halign(root, GTK_ALIGN_CENTER);
-    gtk_widget_set_valign(root, GTK_ALIGN_CENTER);
+    gtk_widget_set_halign(root, GTK_ALIGN_FILL);
+    gtk_widget_set_valign(root, GTK_ALIGN_FILL);
+
+    /* Center wrapper */
+    GtkWidget *center_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_widget_set_hexpand(center_box, TRUE);
+    gtk_widget_set_vexpand(center_box, TRUE);
+    gtk_widget_set_halign(center_box, GTK_ALIGN_CENTER);
+    gtk_widget_set_valign(center_box, GTK_ALIGN_CENTER);
 
     /* Login Card */
     GtkWidget *card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
@@ -160,7 +167,8 @@ GtkWidget *school_login_view_new(LoginSuccessCallback on_success, gpointer user_
     gtk_box_append(GTK_BOX(form), lw->submit_btn);
 
     gtk_box_append(GTK_BOX(card), form);
-    gtk_box_append(GTK_BOX(root), card);
+    gtk_box_append(GTK_BOX(center_box), card);
+    gtk_box_append(GTK_BOX(root), center_box);
 
     /* Store cleanup pointer */
     g_object_set_data_full(G_OBJECT(root), "login_widgets", lw, g_free);
