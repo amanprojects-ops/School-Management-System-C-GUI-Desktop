@@ -62,7 +62,7 @@ GtkWidget *school_sidebar_new(void)
 
     GtkWidget *brand_label = gtk_label_new(NULL);
     gtk_label_set_markup(GTK_LABEL(brand_label),
-                         "<span weight='bold' size='large'>SchoolCMS</span>");
+                         "<span weight='bold' size='large'>APCOACHING</span>");
     gtk_widget_add_css_class(brand_label, "sidebar-brand-text");
     gtk_box_append(GTK_BOX(brand_box), brand_label);
 
@@ -119,7 +119,7 @@ GtkWidget *school_sidebar_new(void)
     GtkWidget *ver_sep = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_box_append(GTK_BOX(bottom), ver_sep);
 
-    GtkWidget *ver_label = gtk_label_new("SchoolCMS v1.1.3");
+    GtkWidget *ver_label = gtk_label_new("APCOACHING v1.1.3");
     gtk_widget_add_css_class(ver_label, "sidebar-version");
     gtk_box_append(GTK_BOX(bottom), ver_label);
 
