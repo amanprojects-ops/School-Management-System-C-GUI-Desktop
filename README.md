@@ -1,4 +1,4 @@
-# SchoolCMS — Enterprise Desktop School Management System
+ # SchoolCMS — Enterprise Desktop School Management System
 
 [![Language](https://img.shields.io/badge/Language-C11-00599C.svg?logo=c)](https://en.wikipedia.org/wiki/C11_(C_standard_revision))
 [![GUI Framework](https://img.shields.io/badge/GUI-GTK4-4A90E2.svg?logo=gnome)](https://www.gtk.org/)
@@ -24,9 +24,10 @@ A modern, high-performance, offline-first institutional **School Management Syst
 8. [Step-by-Step Windows NSIS Installer Creation](#step-by-step-windows-nsis-installer-creation)
 9. [Project Architecture & Directory Structure](#project-architecture--directory-structure)
 10. [Database Architecture & Schema (19 Tables)](#database-architecture--schema-19-tables)
-11. [Troubleshooting & Frequently Asked Questions](#troubleshooting--frequently-asked-questions)
-12. [Release Tags & Version History](#release-tags--version-history)
-13. [License](#license)
+11. [How to Customize Application Name & Icons](#how-to-customize-application-name--icons)
+12. [Troubleshooting & Frequently Asked Questions](#troubleshooting--frequently-asked-questions)
+13. [Release Tags & Version History](#release-tags--version-history)
+14. [License](#license)
 
 ---
 
@@ -124,6 +125,39 @@ A modern, high-performance, offline-first institutional **School Management Syst
 - **Online Hot SQLite Backup:** Creates consistent live database snapshots (`db_backup`) using the SQLite Online Backup API without downtime or table locking.
 - **Atomic Database Restore:** Atomically replaces active database with a chosen snapshot and triggers WAL checkpoint.
 - **Audit Logging:** Every administrative action (login, student create, fee payment, backup) is recorded in the `audit_logs` table.
+
+### 11. Point-and-Click Database Backup Inventory & Restore (v1.1.0)
+- **Live Snapshot Directory Scanner:** Scans the `backups/` directory in real-time, displaying snapshot filename, timestamp, and size in KB/MB.
+- **Point-and-Click Restore:** Instant one-click restore with confirmation modal to revert the database safely to any previous snapshot.
+- **Snapshot Deletion:** Remove obsolete backups with permanent deletion confirmation.
+- **Custom Path Restore:** Enter custom backup file paths from external drives or network storage.
+
+### 12. Dynamic Class & Section Dropdown Selectors (v1.1.0)
+- **Interactive UI Pickers:** Replaced manual integer ID entry with dynamic, human-readable dropdown menus (`GtkDropDown`).
+- **Cascading Class-to-Section Filter:** Selecting a class automatically queries and populates only its associated sections.
+- **Integrated Across Modules:** Deployed in Student Enrollment, Student Editing, Attendance Marking, and ID Card printing workflows.
+
+### 13. Student Identity Card Generation (Single & Bulk Printing) (v1.1.0)
+- **Single Student ID Card Modal:** Formatted identity card displaying student photo avatar, school institution header, admission number, full name, class & section, roll number, contact phone, and validity year.
+- **Bulk Classroom ID Card Grid:** Multi-card responsive grid preview (`GtkFlowBox`) with class and section filters.
+- **Native Print Integration:** Direct "Print ID Cards" button invoking the GTK print preview and operating system printer dialog.
+
+### 14. Responsive Window Auto-Resize & Viewport Adaptability (v1.1.0)
+- **Automatic Window Maximization:** Launches maximized by default (`gtk_window_maximize`) for full-screen desktop productivity.
+- **Guaranteed Minimum Dimensions:** Set to 1024x600 (`WINDOW_MIN_WIDTH`, `WINDOW_MIN_HEIGHT`) with smooth GTK4 resize handles.
+- **Bidirectional Auto-Scrolling:** Horizontal and vertical automatic scrolling (`GTK_POLICY_AUTOMATIC`) enabled across Settings, Timetables, Students, Attendance, and Dashboard views.
+- **Login Viewport Centering:** Dynamic flex-centering layout preventing clipping or off-screen overflows on 720p/1080p/4K monitors and Windows DPI scaling (125%, 150%).
+
+### 15. Application Icon Branding & Settings View Stability (v1.1.1, v1.1.2)
+- **Educational Icon Branding:** Upgraded default application icon from generic dictionary placeholder to `applications-education-symbolic`.
+- **Operating System Taskbar Integration:** `gtk_window_set_icon_name()` sets the application icon for the Windows taskbar, title bar, and Alt+Tab switcher.
+- **Settings Scrolled View Expansion:** Enabled bidirectional expansion (`vexpand`, `hexpand`) and minimum content height on the settings container, preventing zero-height layout collapses.
+- **Automatic View Navigation Refresh:** Switching to the Settings tab automatically refreshes all inputs and database backup lists.
+
+### 16. Automated Version Bump Utility (`scripts/bump_version.py` & `bump_version.bat`)
+- **Single-Command SemVer Bump:** Updates version strings simultaneously across `CMakeLists.txt`, `src/ui/sidebar.c`, `src/ui/window.c`, `scripts/package_windows.py`, `scripts/installer.nsi`, and `README.md`.
+- **Interactive CLI & Flag Support:** Run interactively or pass `--patch`, `--minor`, `--major`, or a custom version string.
+- **Automated Git Tagging:** Generates annotated git tags and optionally pushes commits and tags to GitHub (`--push`).
 
 ---
 
@@ -528,6 +562,131 @@ erDiagram
 
 ---
 
+## How to Customize Application Name & Icons
+
+This guide provides step-by-step instructions for institutional branding, renaming the desktop client, changing logos, and customizing Windows executable icons.
+
+### 1. Changing the School / Institution Name (Runtime & Database)
+
+The institutional name displayed on student identity cards, fee receipts, reports, and report cards is dynamically stored in SQLite:
+
+#### Method A: Via GUI Settings Page (No Code Required)
+1. Launch SchoolCMS and log in as Administrator.
+2. Navigate to **Settings** from the left sidebar.
+3. In the **Institutional Profile** card, edit the **School Name** field (e.g., `Delhi Public International School`).
+4. You can also update the **Principal Name**, **Address**, **Phone**, **Email**, **Website**, and **Currency Symbol** (`₹`, `$`, `INR`, etc.).
+5. Click **Save Changes** in the top-right header. All subsequent ID cards, receipts, and reports will immediately reflect the new name.
+
+#### Method B: Via SQLite CLI or Script
+```sql
+UPDATE settings SET value = 'Delhi Public International School' WHERE key = 'school_name';
+UPDATE settings SET value = 'Dr. Sunita Sharma' WHERE key = 'principal_name';
+```
+
+#### Default Database Seed Location
+If you are building a custom distribution with pre-configured institution details, edit the SQL seed in `src/database.c`:
+```c
+/* src/database.c - Line ~322 */
+INSERT OR IGNORE INTO settings (key, value, description) VALUES
+    ('school_name', 'Your Custom School Name', 'Official school institution name'),
+    ('school_address', 'Your Campus Address', 'Physical mailing address'),
+    ('school_phone', '+91 98765 00000', 'Primary contact phone number'),
+    ('school_email', 'admin@yourschool.edu', 'Institutional contact email'),
+    ('school_website', 'https://yourschool.edu', 'Official website URL'),
+    ('principal_name', 'Principal Name', 'Name of the current school principal'),
+    ('currency_symbol', '₹', 'Currency symbol used for accounting and receipts');
+```
+
+---
+
+### 2. Changing the Application Software Name (Source & UI Branding)
+
+To rebrand the software itself (window title, sidebar brand, login hero, status bar, and binary name):
+
+| UI Component | File | Current Code | Where to Edit |
+| :--- | :--- | :--- | :--- |
+| **Main Window Title** | `src/ui/window.c` | `gtk_window_set_title(GTK_WINDOW(window), "SchoolCMS — School Management System");` | Change `"SchoolCMS"` string |
+| **Status Bar Text** | `src/ui/window.c` | `gtk_label_new("SchoolCMS v1.1.2 • Authenticated")` | Change label text |
+| **Sidebar Brand Header** | `src/ui/sidebar.c` | `<span weight='bold' size='large'>SchoolCMS</span>` | Change markup text |
+| **Sidebar Version Footer**| `src/ui/sidebar.c` | `gtk_label_new("SchoolCMS v1.1.2")` | Change label text |
+| **Login Screen Title** | `src/ui/login.c` | `<span size='xx-large' weight='bold'>SchoolCMS</span>` | Change hero markup text |
+| **GtkApplication ID** | `src/app.c` | `gtk_application_new("com.schoolcms.app", ...)` | Change reverse-DNS ID |
+| **CMake Project & Binary** | `CMakeLists.txt` | `project(SchoolCMS ...)` & `add_executable(SchoolCMS ...)` | Change target name |
+| **Windows Release Package**| `scripts/package_windows.py` | `PACKAGE_NAME = "SchoolCMS-..."` & `EXE_NAME = "SchoolCMS.exe"` | Change package name |
+| **Windows NSIS Installer** | `scripts/installer.nsi` | `!define APP_NAME "SchoolCMS"` | Change installer name |
+
+---
+
+### 3. Changing the Application Icon
+
+SchoolCMS uses GTK4 vector symbolic icons loaded via the Adwaita icon theme and GDK-Pixbuf SVG loader.
+
+#### Changing the In-App GTK Symbolic Icons
+To use a different built-in symbolic icon from the bundled Adwaita icon theme:
+- **Main Window OS Taskbar Icon:** In `src/ui/window.c`:
+  ```c
+  gtk_window_set_icon_name(GTK_WINDOW(window), "applications-education-symbolic");
+  ```
+  *(Alternative icons: `"school-symbolic"`, `"system-users-symbolic"`, `"org.gnome.Education-symbolic"`, `"emblem-academic-symbolic"`)*
+- **Sidebar Brand Logo:** In `src/ui/sidebar.c`:
+  ```c
+  GtkWidget *logo_icon = gtk_image_new_from_icon_name("applications-education-symbolic");
+  ```
+- **Login Screen Hero Logo:** In `src/ui/login.c`:
+  ```c
+  GtkWidget *logo = gtk_image_new_from_icon_name("applications-education-symbolic");
+  ```
+
+#### Adding a Custom Logo Image (PNG / SVG)
+To replace the symbolic icon with your own institutional school logo image (PNG/SVG):
+1. Place your transparent PNG or SVG logo into `assets/images/logo.png`.
+2. In `src/ui/sidebar.c` or `src/ui/login.c`, replace `gtk_image_new_from_icon_name` with `gtk_image_new_from_file`:
+   ```c
+   /* Example: load custom logo file */
+   GtkWidget *logo = gtk_image_new_from_file("assets/images/logo.png");
+   gtk_image_set_pixel_size(GTK_IMAGE(logo), 48);
+   ```
+
+#### Changing the Windows Executable (`.exe`) & NSIS Installer Icon
+1. Prepare a multi-resolution Windows icon file (`.ico` containing 16x16, 32x32, 48x48, 256x256 sizes) and save it as `assets/icons/app.ico`.
+2. In `scripts/installer.nsi`, set the installer and uninstaller icon:
+   ```nsis
+   !define MUI_ICON "..\assets\icons\app.ico"
+   !define MUI_UNICON "..\assets\icons\app.ico"
+   ```
+3. To embed the icon directly into `SchoolCMS.exe`, create a resource file `src/app.rc`:
+   ```rc
+   IDI_APP_ICON ICON "assets/icons/app.ico"
+   ```
+   And link `src/app.rc` in `CMakeLists.txt`:
+   ```cmake
+   if(WIN32)
+       target_sources(SchoolCMS PRIVATE src/app.rc)
+   endif()
+   ```
+
+---
+
+### 4. Rebuilding & Packaging After Customization
+
+After making any name or icon changes:
+
+```bash
+# 1. Recompile binary (MSYS2 UCRT64)
+cd /c/apps/SchoolCMS/build && ninja
+
+# 2. Run all tests to verify integrity
+cd /c/apps/SchoolCMS && bash run_tests.sh
+
+# 3. Create fresh standalone distribution package
+python scripts/package_windows.py
+
+# 4. (Optional) Create Windows NSIS setup installer
+makensis scripts/installer.nsi
+```
+
+---
+
 ## Troubleshooting & Frequently Asked Questions
 
 ### 1. Missing DLL Errors on Standalone Execution
@@ -555,7 +714,7 @@ erDiagram
 
 ## Release Tags & Version History
 
-This repository maintains 32 annotated Git tags tracking each milestone from initial shell to production release:
+This repository maintains 34 annotated Git tags tracking each milestone from initial shell to production release:
 
 | Tag Name | Target Commit | Milestone Description |
 | :--- | :--- | :--- |
@@ -593,6 +752,8 @@ This repository maintains 32 annotated Git tags tracking each milestone from ini
 | `v1.0.0` | `d63ee38` | Production release with full vector icon fix & 65 runtime DLLs |
 | `v1.0.1` | `b808c96` | Comprehensive installation, compilation & packaging documentation |
 | `v1.1.0` | `5936e61` | Database Backup Inventory, Dynamic Dropdowns, Student ID Cards & Responsive Auto-Resize |
+| `v1.1.1` | `3ad678b` | Application education icon branding, settings form placeholder text, OS taskbar icon |
+| `v1.1.2` | `e81c5ad` | Settings view scrolled window expansion & bidirectional auto-sizing, navigation reload fix |
 
 ---
 
