@@ -1,0 +1,58 @@
+name: Release Build and Asset Upload
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup MSYS2 with UCRT64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkg-config
+            mingw-w64-ucrt-x86_64-gtk4
+            mingw-w64-ucrt-x86_64-sqlite3
+            mingw-w64-ucrt-x86_64-openssl
+            mingw-w64-ucrt-x86_64-librsvg
+            mingw-w64-ucrt-x86_64-adwaita-icon-theme
+            mingw-w64-ucrt-x86_64-python
+
+      - name: Build SchoolCMS with CMake & Ninja
+        shell: msys2 {0}
+        run: |
+          mkdir -p build && cd build
+          cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
+          ninja
+
+      - name: Run Test Suite
+        shell: msys2 {0}
+        run: |
+          bash run_tests.sh
+
+      - name: Package Standalone Windows Bundle
+        shell: msys2 {0}
+        run: |
+          python scripts/package_windows.py
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
