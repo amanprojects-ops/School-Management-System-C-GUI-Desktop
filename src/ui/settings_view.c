@@ -634,6 +634,8 @@ GtkWidget *school_settings_view_new(void)
     gtk_label_set_xalign(GTK_LABEL(l_name), 0.0f);
     gtk_box_append(GTK_BOX(b_name), l_name);
     sw->entry_school_name = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(sw->entry_school_name),
+                                   "e.g. St. Mary Higher Secondary School");
     gtk_box_append(GTK_BOX(b_name), sw->entry_school_name);
     gtk_box_append(GTK_BOX(r1), b_name);
 
@@ -643,7 +645,8 @@ GtkWidget *school_settings_view_new(void)
     gtk_label_set_xalign(GTK_LABEL(l_princ), 0.0f);
     gtk_box_append(GTK_BOX(b_princ), l_princ);
     sw->entry_principal_name = gtk_entry_new();
-    gtk_box_append(GTK_BOX(b_princ), sw->entry_principal_name);
+    gtk_entry_set_placeholder_text(GTK_ENTRY(sw->entry_principal_name),
+                                   "e.g. Dr. Ramesh Kumar");
     gtk_box_append(GTK_BOX(r1), b_princ);
     gtk_box_append(GTK_BOX(card_prof), r1);
 
@@ -653,6 +656,8 @@ GtkWidget *school_settings_view_new(void)
     gtk_label_set_xalign(GTK_LABEL(l_addr), 0.0f);
     gtk_box_append(GTK_BOX(b_addr), l_addr);
     sw->entry_school_address = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(sw->entry_school_address),
+                                   "e.g. 12 School Road, New Delhi - 110001");
     gtk_box_append(GTK_BOX(b_addr), sw->entry_school_address);
     gtk_box_append(GTK_BOX(card_prof), b_addr);
 
@@ -664,6 +669,8 @@ GtkWidget *school_settings_view_new(void)
     gtk_label_set_xalign(GTK_LABEL(l_ph), 0.0f);
     gtk_box_append(GTK_BOX(b_ph), l_ph);
     sw->entry_school_phone = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(sw->entry_school_phone),
+                                   "e.g. +91 9876543210");
     gtk_box_append(GTK_BOX(b_ph), sw->entry_school_phone);
     gtk_box_append(GTK_BOX(r3), b_ph);
 
@@ -673,6 +680,8 @@ GtkWidget *school_settings_view_new(void)
     gtk_label_set_xalign(GTK_LABEL(l_em), 0.0f);
     gtk_box_append(GTK_BOX(b_em), l_em);
     sw->entry_school_email = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(sw->entry_school_email),
+                                   "e.g. admin@stmary.edu.in");
     gtk_box_append(GTK_BOX(b_em), sw->entry_school_email);
     gtk_box_append(GTK_BOX(r3), b_em);
 
@@ -682,6 +691,8 @@ GtkWidget *school_settings_view_new(void)
     gtk_label_set_xalign(GTK_LABEL(l_web), 0.0f);
     gtk_box_append(GTK_BOX(b_web), l_web);
     sw->entry_school_website = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(sw->entry_school_website),
+                                   "e.g. https://www.stmary.edu.in");
     gtk_box_append(GTK_BOX(b_web), sw->entry_school_website);
     gtk_box_append(GTK_BOX(r3), b_web);
     gtk_box_append(GTK_BOX(card_prof), r3);
@@ -694,6 +705,8 @@ GtkWidget *school_settings_view_new(void)
     gtk_label_set_xalign(GTK_LABEL(l_curr), 0.0f);
     gtk_box_append(GTK_BOX(b_curr), l_curr);
     sw->entry_currency = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(sw->entry_currency),
+                                   "e.g. Rs. or INR or $");
     gtk_box_append(GTK_BOX(b_curr), sw->entry_currency);
     gtk_box_append(GTK_BOX(r4), b_curr);
 
