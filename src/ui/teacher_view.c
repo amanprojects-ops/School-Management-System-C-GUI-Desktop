@@ -801,7 +801,7 @@ GtkWidget *school_teacher_view_new(void)
     tvw->current_tab = TAB_TEACHERS;
 
     GtkWidget *scroll = gtk_scrolled_window_new();
-    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     gtk_widget_set_hexpand(scroll, TRUE);
     gtk_widget_set_vexpand(scroll, TRUE);
 
