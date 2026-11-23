@@ -6,7 +6,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6.svg?logo=windows)](https://microsoft.com/windows)
 [![Build](https://img.shields.io/badge/Build-CMake%20%7C%20Ninja-064F8C.svg?logo=cmake)](https://cmake.org/)
 [![Test Suite](https://img.shields.io/badge/Tests-13%2F13%20Passed%20(100%25)-2ea44f.svg)](file:///c:/apps/SchoolCMS/run_tests.sh)
-[![Release](https://img.shields.io/badge/Release-v1.1.2-brightgreen.svg)](file:///c:/apps/SchoolCMS/dist/)
+[![Release](https://img.shields.io/badge/Release-v1.1.3-brightgreen.svg)](file:///c:/apps/SchoolCMS/dist/)
 
 A modern, high-performance, offline-first institutional **School Management System** desktop application developed in pure **C (C11)**, **GTK4**, and **SQLite3** for Windows 10 and 11. Designed following enterprise SaaS visual standards, featuring real-time analytics, automated student and faculty rostering, conflict-free timetable scheduling, comprehensive fee accounting, examination grading, RFC 4180 CSV reporting, and online SQLite disaster recovery.
 
