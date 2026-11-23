@@ -45,12 +45,15 @@ typedef struct {
     /* Backup / Restore */
     GtkWidget *entry_restore_path;
     GtkWidget *logs_box;
+    GtkWidget *backups_box;
+    GtkWidget *lbl_backups_summary;
 
     SchoolSettings current_settings;
 } SettingsWidgets;
 
 static void load_settings_into_form(SettingsWidgets *sw);
 static void refresh_audit_logs(SettingsWidgets *sw);
+static void refresh_backup_list(SettingsWidgets *sw);
 
 /* ── Save Profile Handler ─────────────────────────────────────────── */
 
@@ -128,6 +131,7 @@ static void on_create_backup_clicked(GtkButton *btn, gpointer user_data)
         gtk_widget_set_visible(sw->status_banner, TRUE);
         gtk_editable_set_text(GTK_EDITABLE(sw->entry_restore_path), backup_path);
         refresh_audit_logs(sw);
+        refresh_backup_list(sw);
     } else {
         gtk_label_set_text(GTK_LABEL(sw->status_banner), "Backup generation failed.");
         gtk_widget_remove_css_class(sw->status_banner, "card-kpi-green");
@@ -169,6 +173,315 @@ static void on_restore_backup_clicked(GtkButton *btn, gpointer user_data)
 }
 
 /* ── Form Data Loading & Audit Logs ───────────────────────────────── */
+
+typedef struct {
+    SettingsWidgets *sw;
+    char filepath[256];
+    char filename[128];
+    GtkWidget *dialog;
+} BackupActionData;
+
+static void on_cancel_action_clicked(GtkButton *btn, gpointer user_data)
+{
+    (void)btn;
+    BackupActionData *bad = (BackupActionData *)user_data;
+    gtk_window_destroy(GTK_WINDOW(bad->dialog));
+    g_free(bad);
+}
+
+static void on_confirm_restore_clicked(GtkButton *btn, gpointer user_data)
+{
+    (void)btn;
+    BackupActionData *bad = (BackupActionData *)user_data;
+    SettingsWidgets *sw = bad->sw;
+
+    bool ok = settings_service_restore_backup(bad->filepath);
+    if (ok) {
+        char msg[512];
+        snprintf(msg, sizeof(msg), "Database successfully restored from: %s", bad->filename);
+        gtk_label_set_text(GTK_LABEL(sw->status_banner), msg);
+        gtk_widget_remove_css_class(sw->status_banner, "card-kpi-red");
+        gtk_widget_add_css_class(sw->status_banner, "card-kpi-green");
+        gtk_widget_set_visible(sw->status_banner, TRUE);
+        load_settings_into_form(sw);
+        refresh_audit_logs(sw);
+        refresh_backup_list(sw);
+    } else {
+        gtk_label_set_text(GTK_LABEL(sw->status_banner), "Failed to restore database from backup.");
+        gtk_widget_remove_css_class(sw->status_banner, "card-kpi-green");
+        gtk_widget_add_css_class(sw->status_banner, "card-kpi-red");
+        gtk_widget_set_visible(sw->status_banner, TRUE);
+    }
+
+    gtk_window_destroy(GTK_WINDOW(bad->dialog));
+    g_free(bad);
+}
+
+static void on_confirm_delete_clicked(GtkButton *btn, gpointer user_data)
+{
+    (void)btn;
+    BackupActionData *bad = (BackupActionData *)user_data;
+    SettingsWidgets *sw = bad->sw;
+
+    bool ok = settings_service_delete_backup(bad->filepath);
+    if (ok) {
+        char msg[512];
+        snprintf(msg, sizeof(msg), "Backup '%s' deleted successfully.", bad->filename);
+        gtk_label_set_text(GTK_LABEL(sw->status_banner), msg);
+        gtk_widget_remove_css_class(sw->status_banner, "card-kpi-red");
+        gtk_widget_add_css_class(sw->status_banner, "card-kpi-green");
+        gtk_widget_set_visible(sw->status_banner, TRUE);
+        refresh_audit_logs(sw);
+        refresh_backup_list(sw);
+    } else {
+        gtk_label_set_text(GTK_LABEL(sw->status_banner), "Failed to delete backup file.");
+        gtk_widget_remove_css_class(sw->status_banner, "card-kpi-green");
+        gtk_widget_add_css_class(sw->status_banner, "card-kpi-red");
+        gtk_widget_set_visible(sw->status_banner, TRUE);
+    }
+
+    gtk_window_destroy(GTK_WINDOW(bad->dialog));
+    g_free(bad);
+}
+
+static void on_row_restore_clicked(GtkButton *btn, gpointer user_data)
+{
+    SettingsWidgets *sw = (SettingsWidgets *)user_data;
+    const char *fpath = (const char *)g_object_get_data(G_OBJECT(btn), "backup_path");
+    const char *fname = (const char *)g_object_get_data(G_OBJECT(btn), "backup_name");
+    if (!fpath) return;
+
+    BackupActionData *bad = g_new0(BackupActionData, 1);
+    bad->sw = sw;
+    strncpy(bad->filepath, fpath, sizeof(bad->filepath) - 1);
+    strncpy(bad->filename, fname ? fname : fpath, sizeof(bad->filename) - 1);
+
+    GtkWidget *win = gtk_window_new();
+    bad->dialog = win;
+    gtk_window_set_title(GTK_WINDOW(win), "Confirm Database Restore");
+    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
+    gtk_window_set_default_size(GTK_WINDOW(win), 460, 220);
+
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
+    gtk_widget_set_margin_start(box, 24);
+    gtk_widget_set_margin_end(box, 24);
+    gtk_widget_set_margin_top(box, 20);
+    gtk_widget_set_margin_bottom(box, 20);
+    gtk_window_set_child(GTK_WINDOW(win), box);
+
+    GtkWidget *lbl_warn = gtk_label_new("Warning: Restoring Database Snapshot");
+    gtk_widget_add_css_class(lbl_warn, "card-title");
+    gtk_label_set_xalign(GTK_LABEL(lbl_warn), 0.0f);
+    gtk_box_append(GTK_BOX(box), lbl_warn);
+
+    char msg[512];
+    snprintf(msg, sizeof(msg),
+             "Are you sure you want to restore the database from '%s'?\n\n"
+             "All active database records will be reverted to this exact snapshot. Unsaved changes since this backup will be lost.",
+             bad->filename);
+    GtkWidget *lbl_msg = gtk_label_new(msg);
+    gtk_label_set_wrap(GTK_LABEL(lbl_msg), TRUE);
+    gtk_label_set_xalign(GTK_LABEL(lbl_msg), 0.0f);
+    gtk_box_append(GTK_BOX(box), lbl_msg);
+
+    GtkWidget *btns = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+    gtk_widget_set_halign(btns, GTK_ALIGN_END);
+
+    GtkWidget *btn_cancel = gtk_button_new_with_label("Cancel");
+    gtk_widget_add_css_class(btn_cancel, "btn-secondary");
+    g_signal_connect(btn_cancel, "clicked", G_CALLBACK(on_cancel_action_clicked), bad);
+    gtk_box_append(GTK_BOX(btns), btn_cancel);
+
+    GtkWidget *btn_confirm = gtk_button_new_with_label("Restore Snapshot");
+    gtk_widget_add_css_class(btn_confirm, "btn-primary");
+    g_signal_connect(btn_confirm, "clicked", G_CALLBACK(on_confirm_restore_clicked), bad);
+    gtk_box_append(GTK_BOX(btns), btn_confirm);
+
+    gtk_box_append(GTK_BOX(box), btns);
+    gtk_window_present(GTK_WINDOW(win));
+}
+
+static void on_row_delete_clicked(GtkButton *btn, gpointer user_data)
+{
+    SettingsWidgets *sw = (SettingsWidgets *)user_data;
+    const char *fpath = (const char *)g_object_get_data(G_OBJECT(btn), "backup_path");
+    const char *fname = (const char *)g_object_get_data(G_OBJECT(btn), "backup_name");
+    if (!fpath) return;
+
+    BackupActionData *bad = g_new0(BackupActionData, 1);
+    bad->sw = sw;
+    strncpy(bad->filepath, fpath, sizeof(bad->filepath) - 1);
+    strncpy(bad->filename, fname ? fname : fpath, sizeof(bad->filename) - 1);
+
+    GtkWidget *win = gtk_window_new();
+    bad->dialog = win;
+    gtk_window_set_title(GTK_WINDOW(win), "Confirm Backup Deletion");
+    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
+    gtk_window_set_default_size(GTK_WINDOW(win), 440, 180);
+
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
+    gtk_widget_set_margin_start(box, 24);
+    gtk_widget_set_margin_end(box, 24);
+    gtk_widget_set_margin_top(box, 20);
+    gtk_widget_set_margin_bottom(box, 20);
+    gtk_window_set_child(GTK_WINDOW(win), box);
+
+    GtkWidget *lbl_warn = gtk_label_new("Delete Backup File");
+    gtk_widget_add_css_class(lbl_warn, "card-title");
+    gtk_label_set_xalign(GTK_LABEL(lbl_warn), 0.0f);
+    gtk_box_append(GTK_BOX(box), lbl_warn);
+
+    char msg[512];
+    snprintf(msg, sizeof(msg),
+             "Are you sure you want to permanently delete the backup file '%s'?",
+             bad->filename);
+    GtkWidget *lbl_msg = gtk_label_new(msg);
+    gtk_label_set_wrap(GTK_LABEL(lbl_msg), TRUE);
+    gtk_label_set_xalign(GTK_LABEL(lbl_msg), 0.0f);
+    gtk_box_append(GTK_BOX(box), lbl_msg);
+
+    GtkWidget *btns = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+    gtk_widget_set_halign(btns, GTK_ALIGN_END);
+
+    GtkWidget *btn_cancel = gtk_button_new_with_label("Cancel");
+    gtk_widget_add_css_class(btn_cancel, "btn-secondary");
+    g_signal_connect(btn_cancel, "clicked", G_CALLBACK(on_cancel_action_clicked), bad);
+    gtk_box_append(GTK_BOX(btns), btn_cancel);
+
+    GtkWidget *btn_confirm = gtk_button_new_with_label("Delete");
+    gtk_widget_add_css_class(btn_confirm, "btn-action-delete");
+    g_signal_connect(btn_confirm, "clicked", G_CALLBACK(on_confirm_delete_clicked), bad);
+    gtk_box_append(GTK_BOX(btns), btn_confirm);
+
+    gtk_box_append(GTK_BOX(box), btns);
+    gtk_window_present(GTK_WINDOW(win));
+}
+
+static void on_refresh_backups_clicked(GtkButton *btn, gpointer user_data)
+{
+    (void)btn;
+    SettingsWidgets *sw = (SettingsWidgets *)user_data;
+    refresh_backup_list(sw);
+}
+
+static void refresh_backup_list(SettingsWidgets *sw)
+{
+    if (!sw->backups_box) return;
+
+    GtkWidget *child = gtk_widget_get_first_child(sw->backups_box);
+    while (child) {
+        GtkWidget *next = gtk_widget_get_next_sibling(child);
+        gtk_box_remove(GTK_BOX(sw->backups_box), child);
+        child = next;
+    }
+
+    BackupInfo backups[64];
+    int count = 0;
+    settings_service_list_backups(backups, 64, &count);
+
+    long total_bytes = 0;
+    for (int i = 0; i < count; i++) {
+        total_bytes += backups[i].file_size_bytes;
+    }
+
+    char sum_buf[128];
+    if (total_bytes < 1024 * 1024) {
+        snprintf(sum_buf, sizeof(sum_buf), "%d snapshot(s) found in backups/  (Total: %.1f KB)",
+                 count, (double)total_bytes / 1024.0);
+    } else {
+        snprintf(sum_buf, sizeof(sum_buf), "%d snapshot(s) found in backups/  (Total: %.2f MB)",
+                 count, (double)total_bytes / (1024.0 * 1024.0));
+    }
+    if (sw->lbl_backups_summary) {
+        gtk_label_set_text(GTK_LABEL(sw->lbl_backups_summary), sum_buf);
+    }
+
+    if (count == 0) {
+        GtkWidget *empty_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+        gtk_widget_set_margin_top(empty_box, 8);
+        gtk_widget_set_margin_bottom(empty_box, 8);
+        GtkWidget *lbl = gtk_label_new("No backup snapshots currently available in the backups/ directory.");
+        gtk_widget_add_css_class(lbl, "dim-label");
+        gtk_label_set_xalign(GTK_LABEL(lbl), 0.0f);
+        gtk_box_append(GTK_BOX(empty_box), lbl);
+        gtk_box_append(GTK_BOX(sw->backups_box), empty_box);
+        return;
+    }
+
+    /* Table Header */
+    GtkWidget *hdr_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+    gtk_widget_add_css_class(hdr_row, "table-header-row");
+    gtk_widget_set_margin_top(hdr_row, 6);
+
+    GtkWidget *h_name = gtk_label_new("Backup Filename");
+    gtk_label_set_xalign(GTK_LABEL(h_name), 0.0f);
+    gtk_widget_set_hexpand(h_name, TRUE);
+    gtk_box_append(GTK_BOX(hdr_row), h_name);
+
+    GtkWidget *h_time = gtk_label_new("Created Date & Time");
+    gtk_widget_set_size_request(h_time, 160, -1);
+    gtk_box_append(GTK_BOX(hdr_row), h_time);
+
+    GtkWidget *h_size = gtk_label_new("File Size");
+    gtk_widget_set_size_request(h_size, 90, -1);
+    gtk_box_append(GTK_BOX(hdr_row), h_size);
+
+    GtkWidget *h_act = gtk_label_new("Actions");
+    gtk_widget_set_size_request(h_act, 160, -1);
+    gtk_box_append(GTK_BOX(hdr_row), h_act);
+
+    gtk_box_append(GTK_BOX(sw->backups_box), hdr_row);
+
+    /* Rows */
+    for (int i = 0; i < count; i++) {
+        GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+        gtk_widget_add_css_class(row, "table-data-row");
+
+        /* Filename */
+        GtkWidget *fn_lbl = gtk_label_new(backups[i].filename);
+        gtk_widget_add_css_class(fn_lbl, "table-cell-bold");
+        gtk_label_set_xalign(GTK_LABEL(fn_lbl), 0.0f);
+        gtk_widget_set_hexpand(fn_lbl, TRUE);
+        gtk_box_append(GTK_BOX(row), fn_lbl);
+
+        /* Timestamp */
+        GtkWidget *ts_lbl = gtk_label_new(backups[i].created_at);
+        gtk_widget_set_size_request(ts_lbl, 160, -1);
+        gtk_box_append(GTK_BOX(row), ts_lbl);
+
+        /* Size */
+        char sz_buf[32];
+        if (backups[i].file_size_bytes < 1024 * 1024) {
+            snprintf(sz_buf, sizeof(sz_buf), "%.1f KB", (double)backups[i].file_size_bytes / 1024.0);
+        } else {
+            snprintf(sz_buf, sizeof(sz_buf), "%.2f MB", (double)backups[i].file_size_bytes / (1024.0 * 1024.0));
+        }
+        GtkWidget *sz_lbl = gtk_label_new(sz_buf);
+        gtk_widget_set_size_request(sz_lbl, 90, -1);
+        gtk_box_append(GTK_BOX(row), sz_lbl);
+
+        /* Actions Box */
+        GtkWidget *act_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+        gtk_widget_set_size_request(act_box, 160, -1);
+
+        GtkWidget *btn_row_rest = gtk_button_new_with_label("Restore");
+        gtk_widget_add_css_class(btn_row_rest, "btn-secondary");
+        g_object_set_data_full(G_OBJECT(btn_row_rest), "backup_path", g_strdup(backups[i].filepath), g_free);
+        g_object_set_data_full(G_OBJECT(btn_row_rest), "backup_name", g_strdup(backups[i].filename), g_free);
+        g_signal_connect(btn_row_rest, "clicked", G_CALLBACK(on_row_restore_clicked), sw);
+        gtk_box_append(GTK_BOX(act_box), btn_row_rest);
+
+        GtkWidget *btn_row_del = gtk_button_new_with_label("Delete");
+        gtk_widget_add_css_class(btn_row_del, "btn-action-delete");
+        g_object_set_data_full(G_OBJECT(btn_row_del), "backup_path", g_strdup(backups[i].filepath), g_free);
+        g_object_set_data_full(G_OBJECT(btn_row_del), "backup_name", g_strdup(backups[i].filename), g_free);
+        g_signal_connect(btn_row_del, "clicked", G_CALLBACK(on_row_delete_clicked), sw);
+        gtk_box_append(GTK_BOX(act_box), btn_row_del);
+
+        gtk_box_append(GTK_BOX(row), act_box);
+        gtk_box_append(GTK_BOX(sw->backups_box), row);
+    }
+}
 
 static void load_settings_into_form(SettingsWidgets *sw)
 {
@@ -417,7 +730,7 @@ GtkWidget *school_settings_view_new(void)
     gtk_box_append(GTK_BOX(content_box), card_prof);
 
     /* ── 2. Database Backup & Disaster Recovery ─────────────────── */
-    GtkWidget *card_bk = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+    GtkWidget *card_bk = gtk_box_new(GTK_ORIENTATION_VERTICAL, 14);
     gtk_widget_add_css_class(card_bk, "card");
 
     GtkWidget *lbl_sec2 = gtk_label_new("Database Backup & Disaster Recovery");
@@ -425,21 +738,45 @@ GtkWidget *school_settings_view_new(void)
     gtk_label_set_xalign(GTK_LABEL(lbl_sec2), 0.0f);
     gtk_box_append(GTK_BOX(card_bk), lbl_sec2);
 
-    GtkWidget *bk_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+    /* Backup Actions Row */
+    GtkWidget *bk_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+
     GtkWidget *btn_backup = gtk_button_new_with_label("Create Backup Now");
     gtk_widget_add_css_class(btn_backup, "btn-primary");
     g_signal_connect(btn_backup, "clicked", G_CALLBACK(on_create_backup_clicked), sw);
     gtk_box_append(GTK_BOX(bk_row), btn_backup);
 
-    GtkWidget *lbl_bk_hint = gtk_label_new("Creates an atomic online snapshot in the backups/ directory.");
-    gtk_widget_add_css_class(lbl_bk_hint, "dim-label");
-    gtk_box_append(GTK_BOX(bk_row), lbl_bk_hint);
+    GtkWidget *btn_refresh_bk = gtk_button_new_with_label("Refresh List");
+    gtk_widget_add_css_class(btn_refresh_bk, "btn-secondary");
+    g_signal_connect(btn_refresh_bk, "clicked", G_CALLBACK(on_refresh_backups_clicked), sw);
+    gtk_box_append(GTK_BOX(bk_row), btn_refresh_bk);
+
+    sw->lbl_backups_summary = gtk_label_new("Scanning backups...");
+    gtk_widget_add_css_class(sw->lbl_backups_summary, "dim-label");
+    gtk_label_set_xalign(GTK_LABEL(sw->lbl_backups_summary), 0.0f);
+    gtk_widget_set_hexpand(sw->lbl_backups_summary, TRUE);
+    gtk_box_append(GTK_BOX(bk_row), sw->lbl_backups_summary);
+
     gtk_box_append(GTK_BOX(card_bk), bk_row);
 
-    /* Restore Row */
+    /* Backups List Box */
+    GtkWidget *bk_list_title = gtk_label_new("Available Database Snapshots:");
+    gtk_widget_add_css_class(bk_list_title, "table-cell-bold");
+    gtk_label_set_xalign(GTK_LABEL(bk_list_title), 0.0f);
+    gtk_widget_set_margin_top(bk_list_title, 8);
+    gtk_box_append(GTK_BOX(card_bk), bk_list_title);
+
+    sw->backups_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+    gtk_box_append(GTK_BOX(card_bk), sw->backups_box);
+
+    GtkWidget *sep_bk = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+    gtk_widget_set_margin_top(sep_bk, 8);
+    gtk_widget_set_margin_bottom(sep_bk, 8);
+    gtk_box_append(GTK_BOX(card_bk), sep_bk);
+
+    /* Manual Restore Row */
     GtkWidget *rest_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
-    gtk_widget_set_margin_top(rest_box, 8);
-    GtkWidget *lbl_rest = gtk_label_new("Restore from Backup File:");
+    GtkWidget *lbl_rest = gtk_label_new("Custom Path Restore:");
     gtk_label_set_xalign(GTK_LABEL(lbl_rest), 0.0f);
     gtk_box_append(GTK_BOX(rest_box), lbl_rest);
 
@@ -449,7 +786,7 @@ GtkWidget *school_settings_view_new(void)
     gtk_widget_set_hexpand(sw->entry_restore_path, TRUE);
     gtk_box_append(GTK_BOX(r_input), sw->entry_restore_path);
 
-    GtkWidget *btn_rest = gtk_button_new_with_label("Restore Database");
+    GtkWidget *btn_rest = gtk_button_new_with_label("Restore File");
     gtk_widget_add_css_class(btn_rest, "btn-secondary");
     g_signal_connect(btn_rest, "clicked", G_CALLBACK(on_restore_backup_clicked), sw);
     gtk_box_append(GTK_BOX(r_input), btn_rest);
@@ -474,6 +811,7 @@ GtkWidget *school_settings_view_new(void)
     /* Initial Load */
     load_settings_into_form(sw);
     refresh_audit_logs(sw);
+    refresh_backup_list(sw);
 
     return sw->root_box;
 }
@@ -485,5 +823,6 @@ void school_settings_view_reload(GtkWidget *view)
     if (sw) {
         load_settings_into_form(sw);
         refresh_audit_logs(sw);
+        refresh_backup_list(sw);
     }
 }
