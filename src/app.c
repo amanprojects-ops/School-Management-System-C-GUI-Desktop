@@ -22,7 +22,7 @@ GtkApplication *school_app_new(void)
     init_runtime_environment();
 
     GtkApplication *app = gtk_application_new(
-        "com.schoolcms.app",
+        "com.apcoaching.app",
         G_APPLICATION_DEFAULT_FLAGS
     );
     g_signal_connect(app, "activate", G_CALLBACK(on_activate), NULL);
