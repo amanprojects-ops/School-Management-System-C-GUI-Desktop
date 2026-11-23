@@ -34,9 +34,10 @@ SYSTEM_DLLS = {
 
 def get_imported_dlls(pe_path):
     """Query imported DLL names from a PE binary using objdump."""
+    objdump_cmd = str(UCRT64_BIN / "objdump.exe") if (UCRT64_BIN / "objdump.exe").exists() else "objdump"
     try:
         res = subprocess.run(
-            ["objdump", "-p", str(pe_path)],
+            [objdump_cmd, "-p", str(pe_path)],
             capture_output=True,
             text=True,
             check=True
