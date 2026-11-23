@@ -12,12 +12,12 @@
 #include <gtk/gtk.h>
 
 /** Minimum window dimensions. */
-#define WINDOW_MIN_WIDTH  1100
-#define WINDOW_MIN_HEIGHT 700
+#define WINDOW_MIN_WIDTH  800
+#define WINDOW_MIN_HEIGHT 500
 
 /** Default window dimensions. */
-#define WINDOW_DEFAULT_WIDTH  1366
-#define WINDOW_DEFAULT_HEIGHT 768
+#define WINDOW_DEFAULT_WIDTH  1280
+#define WINDOW_DEFAULT_HEIGHT 720
 
 /**
  * @brief Navigation page identifiers.
