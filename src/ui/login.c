@@ -109,7 +109,7 @@ GtkWidget *school_login_view_new(LoginSuccessCallback on_success, gpointer user_
     gtk_box_append(GTK_BOX(brand_box), logo);
 
     GtkWidget *title = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(title), "<span size='xx-large' weight='bold'>SchoolCMS</span>");
+    gtk_label_set_markup(GTK_LABEL(title), "<span size='xx-large' weight='bold'>APCOACHING</span>");
     gtk_widget_add_css_class(title, "login-title");
     gtk_box_append(GTK_BOX(brand_box), title);
 
