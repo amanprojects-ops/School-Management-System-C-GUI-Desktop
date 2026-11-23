@@ -103,7 +103,7 @@ GtkWidget *school_login_view_new(LoginSuccessCallback on_success, gpointer user_
     GtkWidget *brand_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
     gtk_widget_set_halign(brand_box, GTK_ALIGN_CENTER);
 
-    GtkWidget *logo = gtk_image_new_from_icon_name("accessories-dictionary-symbolic");
+    GtkWidget *logo = gtk_image_new_from_icon_name("applications-education-symbolic");
     gtk_image_set_pixel_size(GTK_IMAGE(logo), 54);
     gtk_widget_add_css_class(logo, "login-logo");
     gtk_box_append(GTK_BOX(brand_box), logo);
