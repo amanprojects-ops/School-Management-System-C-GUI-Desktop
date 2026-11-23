@@ -283,11 +283,84 @@ def git_push():
 # Main
 # ---------------------------------------------------------------------------
 
+def calculate_bump(old_ver, bump_type):
+    """Calculate the next semver based on bump type ('patch', 'minor', 'major')."""
+    parts = [int(p) for p in old_ver.split(".")]
+    if len(parts) != 3:
+        return None
+    major, minor, patch = parts
+    if bump_type == "patch":
+        patch += 1
+    elif bump_type == "minor":
+        minor += 1
+        patch = 0
+    elif bump_type == "major":
+        major += 1
+        minor = 0
+        patch = 0
+    return f"{major}.{minor}.{patch}"
+
+
+def prompt_user_for_version(old_ver):
+    """Interactive CLI menu when no version argument is passed."""
+    patch_v = calculate_bump(old_ver, "patch")
+    minor_v = calculate_bump(old_ver, "minor")
+    major_v = calculate_bump(old_ver, "major")
+
+    print("\n" + "=" * 50)
+    print(f"  Current SchoolCMS Version: v{old_ver}")
+    print("=" * 50)
+    print("Select version upgrade option:")
+    print(f"  1) Patch: v{patch_v}  (Bug fixes, minor tweaks)")
+    print(f"  2) Minor: v{minor_v}  (New features, UI improvements)")
+    print(f"  3) Major: v{major_v}  (Breaking changes, major release)")
+    print("  4) Custom version string")
+    print("=" * 50)
+
+    try:
+        choice = input("\nEnter choice [1/2/3/4] or custom version (default 1): ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print("\nAborted.")
+        sys.exit(0)
+
+    if not choice or choice == "1":
+        return patch_v
+    elif choice == "2":
+        return minor_v
+    elif choice == "3":
+        return major_v
+    elif choice == "4":
+        try:
+            custom = input("Enter custom version (e.g. 1.2.0): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nAborted.")
+            sys.exit(0)
+        return custom.lstrip("v")
+    else:
+        # User might have typed the version directly (e.g. "1.2.0")
+        return choice.lstrip("v")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Bump SchoolCMS version across all project files."
     )
-    parser.add_argument("new_version", help="New version string, e.g. 1.2.0")
+    parser.add_argument(
+        "new_version", nargs="?", default=None,
+        help="New version string, e.g. 1.2.0 (optional if --patch/--minor/--major is used)"
+    )
+    parser.add_argument(
+        "--patch", action="store_true",
+        help="Automatically bump patch version (e.g. 1.1.0 -> 1.1.1)"
+    )
+    parser.add_argument(
+        "--minor", action="store_true",
+        help="Automatically bump minor version (e.g. 1.1.0 -> 1.2.0)"
+    )
+    parser.add_argument(
+        "--major", action="store_true",
+        help="Automatically bump major version (e.g. 1.1.0 -> 2.0.0)"
+    )
     parser.add_argument(
         "--message", "-m", default="",
         help="Release description for git tag annotation and README history table."
@@ -302,10 +375,32 @@ def main():
     )
     args = parser.parse_args()
 
-    new_ver = args.new_version.lstrip("v")  # strip leading 'v' if user typed it
-    validate_semver(new_ver)
-
     old_ver = detect_current_version()
+
+    # Determine target new version
+    if args.new_version:
+        new_ver = args.new_version.lstrip("v")
+    elif args.patch:
+        new_ver = calculate_bump(old_ver, "patch")
+    elif args.minor:
+        new_ver = calculate_bump(old_ver, "minor")
+    elif args.major:
+        new_ver = calculate_bump(old_ver, "major")
+    else:
+        # Check if stdin is interactive
+        if sys.stdin.isatty():
+            new_ver = prompt_user_for_version(old_ver)
+        else:
+            print(f"[ERROR] Version argument missing. Current version is v{old_ver}")
+            print("\nUsage examples:")
+            print("  python scripts/bump_version.py 1.2.0")
+            print("  python scripts/bump_version.py --patch")
+            print("  python scripts/bump_version.py --minor")
+            print("  python scripts/bump_version.py --major")
+            print("  python scripts/bump_version.py 1.2.0 --dry-run")
+            sys.exit(1)
+
+    validate_semver(new_ver)
 
     print("=" * 60)
     print(f"  SchoolCMS Version Bump")
