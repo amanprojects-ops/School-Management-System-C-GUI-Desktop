@@ -108,4 +108,17 @@ bool student_service_delete(int id);
  */
 bool student_service_generate_admission_no(char *out_admission_no, size_t size);
 
+/**
+ * @brief Fetch students for ID card generation filtered by class, section, and status.
+ * @param class_id Target class ID (0 for all classes).
+ * @param section_id Target section ID (0 for all sections).
+ * @param status Target status string (empty or NULL for all).
+ * @param out_students Array to receive student records.
+ * @param max_students Maximum capacity of out_students.
+ * @param out_count Pointer to receive number of students returned.
+ * @return true on success.
+ */
+bool student_service_get_for_id_cards(int class_id, int section_id, const char *status,
+                                     Student *out_students, int max_students, int *out_count);
+
 #endif /* SCHOOLCMS_STUDENT_H */
