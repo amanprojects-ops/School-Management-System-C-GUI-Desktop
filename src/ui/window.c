@@ -78,6 +78,8 @@ void school_window_new(GtkApplication *app)
                                 WINDOW_DEFAULT_WIDTH,
                                 WINDOW_DEFAULT_HEIGHT);
     gtk_widget_set_size_request(window, WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT);
+    gtk_window_set_resizable(GTK_WINDOW(window), TRUE);
+    gtk_window_maximize(GTK_WINDOW(window));
     gtk_widget_add_css_class(window, "main-window");
 
     /* ── Outer Root Stack (switches between Login and Main App Shell) ── */
