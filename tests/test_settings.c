@@ -106,6 +106,51 @@ static void test_backup_and_restore(void)
     printf("       Backup and restore verified -> PASS\n");
 }
 
+static void test_backup_list_and_delete(void)
+{
+    printf("[TEST] Testing backup inventory listing and deletion...\n");
+
+    /* Create test backup inside backups/ directory */
+    const char *test_bk = "backups/test_schoolcms_inventory.db";
+    bool ok = settings_service_create_backup(test_bk);
+    assert(ok && "Backup creation in backups/ must succeed");
+
+    BackupInfo backups[20];
+    int count = 0;
+    ok = settings_service_list_backups(backups, 20, &count);
+    assert(ok && "Listing backups must succeed");
+    assert(count >= 1 && "At least one backup must be found");
+
+    bool found = false;
+    for (int i = 0; i < count; i++) {
+        if (strcmp(backups[i].filename, "test_schoolcms_inventory.db") == 0) {
+            found = true;
+            assert(backups[i].file_size_bytes > 0 && "Backup file size must be non-zero");
+            assert(strlen(backups[i].created_at) > 0 && "Backup timestamp must be populated");
+            break;
+        }
+    }
+    assert(found && "Created backup must be in listing");
+
+    /* Test backup deletion */
+    ok = settings_service_delete_backup(test_bk);
+    assert(ok && "Backup deletion must succeed");
+
+    /* Verify no longer in list */
+    count = 0;
+    settings_service_list_backups(backups, 20, &count);
+    found = false;
+    for (int i = 0; i < count; i++) {
+        if (strcmp(backups[i].filename, "test_schoolcms_inventory.db") == 0) {
+            found = true;
+            break;
+        }
+    }
+    assert(!found && "Deleted backup must not be present in list");
+
+    printf("       Backup inventory listing and deletion verified -> PASS\n");
+}
+
 static void test_audit_logs(void)
 {
     printf("[TEST] Testing audit activity logging...\n");
@@ -133,6 +178,7 @@ int main(void)
     test_key_value_settings();
     test_full_settings_profile();
     test_backup_and_restore();
+    test_backup_list_and_delete();
     test_audit_logs();
 
     db_close();
