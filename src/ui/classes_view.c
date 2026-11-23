@@ -1306,7 +1306,7 @@ GtkWidget *school_classes_view_new(void)
     /* Main Scrollable View */
     GtkWidget *scrolled = gtk_scrolled_window_new();
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
-                                  GTK_POLICY_NEVER,
+                                  GTK_POLICY_AUTOMATIC,
                                   GTK_POLICY_AUTOMATIC);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 24);
