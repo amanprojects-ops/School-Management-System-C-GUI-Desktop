@@ -38,6 +38,16 @@ typedef struct {
     char created_at[32];
 } AuditLogEntry;
 
+/**
+ * @brief Backup File Metadata Item
+ */
+typedef struct {
+    char filename[128];
+    char filepath[256];
+    char created_at[32];        /* YYYY-MM-DD HH:MM:SS */
+    long file_size_bytes;       /* Size in bytes */
+} BackupInfo;
+
 /* ── Service Functions ────────────────────────────────────────────── */
 
 /**
@@ -69,6 +79,22 @@ bool settings_service_create_backup(const char *dest_path);
  * @brief Restore active database from backup file.
  */
 bool settings_service_restore_backup(const char *src_path);
+
+/**
+ * @brief List all available database backup files from the backups directory.
+ * @param out_backups Array to receive backup metadata items.
+ * @param max_backups Maximum items that can fit into out_backups.
+ * @param out_count Pointer to receive number of backups found.
+ * @return true on success.
+ */
+bool settings_service_list_backups(BackupInfo *out_backups, int max_backups, int *out_count);
+
+/**
+ * @brief Delete a specific backup file.
+ * @param filepath Full path to the backup file inside backups/
+ * @return true on success.
+ */
+bool settings_service_delete_backup(const char *filepath);
 
 /**
  * @brief Retrieve recent audit activity logs.
