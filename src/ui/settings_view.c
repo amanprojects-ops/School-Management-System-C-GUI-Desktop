@@ -611,8 +611,7 @@ GtkWidget *school_settings_view_new(void)
 
     /* Scrolled Window for Settings Layout */
     GtkWidget *scrolled = gtk_scrolled_window_new();
-    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scrolled), 520);
-    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
     GtkWidget *content_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), content_box);
