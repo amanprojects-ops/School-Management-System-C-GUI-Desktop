@@ -704,3 +704,60 @@ combobox:hover {
     color: #94a3b8;
     font-size: 13px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   11. STUDENT ID CARD STYLING
+   ═══════════════════════════════════════════════════════════════════ */
+
+.id-card-frame {
+    background-color: #ffffff;
+    border: 2px solid #2563eb;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.12), 0 2px 6px -1px rgba(0, 0, 0, 0.06);
+}
+
+.id-card-header {
+    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    padding: 10px 14px;
+}
+
+.id-card-title {
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+}
+
+.id-card-subtitle {
+    color: #bfdbfe;
+    font-size: 10px;
+    font-weight: 500;
+}
+
+.id-card-ribbon {
+    background-color: #f59e0b;
+    color: #78350f;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.id-card-photo-box {
+    background-color: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 4px;
+}
+
+.id-card-footer {
+    background-color: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+    padding: 6px 14px;
+}
+
