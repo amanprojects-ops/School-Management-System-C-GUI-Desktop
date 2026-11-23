@@ -1,4 +1,4 @@
- # SchoolCMS — Enterprise Desktop School Management System
+ # APCOACHING — Enterprise Desktop School Management System
 
 [![Language](https://img.shields.io/badge/Language-C11-00599C.svg?logo=c)](https://en.wikipedia.org/wiki/C11_(C_standard_revision))
 [![GUI Framework](https://img.shields.io/badge/GUI-GTK4-4A90E2.svg?logo=gnome)](https://www.gtk.org/)
