@@ -75,11 +75,47 @@ void school_window_new(GtkApplication *app)
     GtkWidget *window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(window), "APCOACHING — School Management System");
     gtk_window_set_icon_name(GTK_WINDOW(window), "applications-education-symbolic");
-    gtk_window_set_default_size(GTK_WINDOW(window),
-                                WINDOW_DEFAULT_WIDTH,
-                                WINDOW_DEFAULT_HEIGHT);
+
+    /* Auto-detect primary display monitor geometry to adapt window size */
+    int screen_w = WINDOW_DEFAULT_WIDTH;
+    int screen_h = WINDOW_DEFAULT_HEIGHT;
+
+    GdkDisplay *display = gdk_display_get_default();
+    if (display) {
+        GListModel *monitors = gdk_display_get_monitors(display);
+        if (monitors && g_list_model_get_n_items(monitors) > 0) {
+            GdkMonitor *mon = GDK_MONITOR(g_list_model_get_item(monitors, 0));
+            if (mon) {
+                GdkRectangle geom;
+                gdk_monitor_get_geometry(mon, &geom);
+                if (geom.width > 0 && geom.height > 0) {
+                    screen_w = geom.width;
+                    screen_h = geom.height;
+                }
+                g_object_unref(mon);
+            }
+        }
+    }
+
+    /* Auto-adjust default dimensions to fit comfortably inside screen workspace:
+     * - Leave margins for taskbar, desktop padding, and titlebars
+     * - Clamp width between WINDOW_MIN_WIDTH (640) and 1280
+     * - Clamp height between WINDOW_MIN_HEIGHT (450) and 760
+     */
+    int auto_width = (int)(screen_w * 0.88);
+    int auto_height = (int)(screen_h * 0.82);
+
+    if (auto_width > 1280) auto_width = 1280;
+    if (auto_width < WINDOW_MIN_WIDTH) auto_width = WINDOW_MIN_WIDTH;
+
+    if (auto_height > 760) auto_height = 720;
+    if (auto_height < WINDOW_MIN_HEIGHT) auto_height = WINDOW_MIN_HEIGHT;
+
+    gtk_window_set_default_size(GTK_WINDOW(window), auto_width, auto_height);
     gtk_widget_set_size_request(window, WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT);
     gtk_window_set_resizable(GTK_WINDOW(window), TRUE);
+
+    /* Maximize on launch for full immersive layout while allowing clean Restore Down */
     gtk_window_maximize(GTK_WINDOW(window));
     gtk_widget_add_css_class(window, "main-window");
 
@@ -87,6 +123,8 @@ void school_window_new(GtkApplication *app)
     root_stack = GTK_STACK(gtk_stack_new());
     gtk_stack_set_transition_type(root_stack, GTK_STACK_TRANSITION_TYPE_CROSSFADE);
     gtk_stack_set_transition_duration(root_stack, 250);
+    gtk_stack_set_hhomogeneous(root_stack, FALSE);
+    gtk_stack_set_vhomogeneous(root_stack, FALSE);
     gtk_window_set_child(GTK_WINDOW(window), GTK_WIDGET(root_stack));
 
     /* 1. Login View */
@@ -116,6 +154,8 @@ void school_window_new(GtkApplication *app)
     content_stack = GTK_STACK(gtk_stack_new());
     gtk_stack_set_transition_type(content_stack, GTK_STACK_TRANSITION_TYPE_CROSSFADE);
     gtk_stack_set_transition_duration(content_stack, 200);
+    gtk_stack_set_hhomogeneous(content_stack, FALSE);
+    gtk_stack_set_vhomogeneous(content_stack, FALSE);
     gtk_widget_set_hexpand(GTK_WIDGET(content_stack), TRUE);
     gtk_widget_set_vexpand(GTK_WIDGET(content_stack), TRUE);
     gtk_box_append(GTK_BOX(right_box), GTK_WIDGET(content_stack));
@@ -158,10 +198,12 @@ void school_window_new(GtkApplication *app)
     GtkWidget *status_label = gtk_label_new("APCOACHING v1.1.3  •  Authenticated");
     gtk_widget_set_halign(status_label, GTK_ALIGN_START);
     gtk_widget_set_hexpand(status_label, TRUE);
+    gtk_label_set_ellipsize(GTK_LABEL(status_label), PANGO_ELLIPSIZE_END);
     gtk_box_append(GTK_BOX(status_bar), status_label);
 
     GtkWidget *status_right = gtk_label_new("School Management System  •  Pure C11 & GTK4");
     gtk_widget_set_halign(status_right, GTK_ALIGN_END);
+    gtk_label_set_ellipsize(GTK_LABEL(status_right), PANGO_ELLIPSIZE_END);
     gtk_box_append(GTK_BOX(status_bar), status_right);
 
     gtk_box_append(GTK_BOX(right_box), status_bar);
