@@ -57,6 +57,7 @@ GtkWidget *school_header_new(void)
     gtk_label_set_markup(GTK_LABEL(breadcrumb_label),
                          "<span weight='bold' size='large'>Dashboard</span>");
     gtk_label_set_xalign(GTK_LABEL(breadcrumb_label), 0.0f);
+    gtk_label_set_ellipsize(GTK_LABEL(breadcrumb_label), PANGO_ELLIPSIZE_END);
     gtk_widget_add_css_class(breadcrumb_label, "header-breadcrumb");
     gtk_box_append(GTK_BOX(row), breadcrumb_label);
 
@@ -65,9 +66,9 @@ GtkWidget *school_header_new(void)
     gtk_widget_set_hexpand(spacer, TRUE);
     gtk_box_append(GTK_BOX(row), spacer);
 
-    /* Search entry */
+    /* Search entry (flexible size request to permit narrow window resizing) */
     GtkWidget *search = gtk_search_entry_new();
-    gtk_widget_set_size_request(search, 260, -1);
+    gtk_widget_set_size_request(search, 160, -1);
     gtk_widget_add_css_class(search, "header-search");
     g_signal_connect(search, "search-changed",
                      G_CALLBACK(on_search_changed), NULL);
@@ -92,11 +93,13 @@ GtkWidget *school_header_new(void)
     GtkWidget *user_info = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
     user_name_label = gtk_label_new("Administrator");
     gtk_label_set_xalign(GTK_LABEL(user_name_label), 0.0f);
+    gtk_label_set_ellipsize(GTK_LABEL(user_name_label), PANGO_ELLIPSIZE_END);
     gtk_widget_add_css_class(user_name_label, "header-username");
     gtk_box_append(GTK_BOX(user_info), user_name_label);
 
     user_role_label = gtk_label_new("ADMIN");
     gtk_label_set_xalign(GTK_LABEL(user_role_label), 0.0f);
+    gtk_label_set_ellipsize(GTK_LABEL(user_role_label), PANGO_ELLIPSIZE_END);
     gtk_widget_add_css_class(user_role_label, "header-role-badge");
     gtk_box_append(GTK_BOX(user_info), user_role_label);
 
