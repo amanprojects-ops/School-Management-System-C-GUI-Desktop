@@ -21,6 +21,7 @@ typedef struct {
     GtkWidget *tab_teachers_btn;
     GtkWidget *tab_staff_btn;
     GtkWidget *table_container;
+    GtkWidget *status_banner;
     ActiveTab current_tab;
     char search_text[128];
     char status_text[16];
@@ -57,11 +58,26 @@ static void on_status_changed(GtkDropDown *dropdown, GParamSpec *pspec, gpointer
     refresh_table(tvw);
 }
 
+static void show_status_message(TeacherViewWidgets *tvw, const char *msg, bool is_success)
+{
+    if (!tvw || !tvw->status_banner) return;
+    gtk_label_set_text(GTK_LABEL(tvw->status_banner), msg);
+    if (is_success) {
+        gtk_widget_remove_css_class(tvw->status_banner, "card-kpi-red");
+        gtk_widget_add_css_class(tvw->status_banner, "card-kpi-green");
+    } else {
+        gtk_widget_remove_css_class(tvw->status_banner, "card-kpi-green");
+        gtk_widget_add_css_class(tvw->status_banner, "card-kpi-red");
+    }
+    gtk_widget_set_visible(tvw->status_banner, TRUE);
+}
+
 static void on_tab_teachers_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     TeacherViewWidgets *tvw = (TeacherViewWidgets *)user_data;
     tvw->current_tab = TAB_TEACHERS;
+    if (tvw->status_banner) gtk_widget_set_visible(tvw->status_banner, FALSE);
     gtk_widget_add_css_class(tvw->tab_teachers_btn, "tab-btn-active");
     gtk_widget_remove_css_class(tvw->tab_staff_btn, "tab-btn-active");
     refresh_table(tvw);
@@ -72,6 +88,7 @@ static void on_tab_staff_clicked(GtkButton *btn, gpointer user_data)
     (void)btn;
     TeacherViewWidgets *tvw = (TeacherViewWidgets *)user_data;
     tvw->current_tab = TAB_STAFF;
+    if (tvw->status_banner) gtk_widget_set_visible(tvw->status_banner, FALSE);
     gtk_widget_add_css_class(tvw->tab_staff_btn, "tab-btn-active");
     gtk_widget_remove_css_class(tvw->tab_teachers_btn, "tab-btn-active");
     refresh_table(tvw);
@@ -395,8 +412,20 @@ static void on_save_teacher(GtkButton *btn, gpointer user_data)
     guint st_sel = gtk_drop_down_get_selected(GTK_DROP_DOWN(sfd->combo_status));
     strcpy(t.status, (st_sel == 1) ? "INACTIVE" : "ACTIVE");
 
-    if (sfd->id > 0) teacher_service_update(&t);
-    else teacher_service_create(&t, NULL);
+    if (sfd->id > 0) {
+        if (teacher_service_update(&t)) {
+            show_status_message(sfd->tvw, "Teacher details updated successfully.", true);
+        } else {
+            show_status_message(sfd->tvw, "Failed to update teacher.", false);
+        }
+    } else {
+        int new_id = 0;
+        if (teacher_service_create(&t, &new_id)) {
+            show_status_message(sfd->tvw, "New teacher added successfully.", true);
+        } else {
+            show_status_message(sfd->tvw, "Failed to add teacher.", false);
+        }
+    }
 
     refresh_table(sfd->tvw);
     gtk_window_destroy(GTK_WINDOW(sfd->dialog));
@@ -515,8 +544,20 @@ static void on_save_staff(GtkButton *btn, gpointer user_data)
     guint st_sel = gtk_drop_down_get_selected(GTK_DROP_DOWN(sfd->combo_status));
     strcpy(s.status, (st_sel == 1) ? "INACTIVE" : "ACTIVE");
 
-    if (sfd->id > 0) staff_service_update(&s);
-    else staff_service_create(&s, NULL);
+    if (sfd->id > 0) {
+        if (staff_service_update(&s)) {
+            show_status_message(sfd->tvw, "Staff details updated successfully.", true);
+        } else {
+            show_status_message(sfd->tvw, "Failed to update staff.", false);
+        }
+    } else {
+        int new_id = 0;
+        if (staff_service_create(&s, &new_id)) {
+            show_status_message(sfd->tvw, "New staff member added successfully.", true);
+        } else {
+            show_status_message(sfd->tvw, "Failed to add staff member.", false);
+        }
+    }
 
     refresh_table(sfd->tvw);
     gtk_window_destroy(GTK_WINDOW(sfd->dialog));
@@ -734,8 +775,19 @@ static void on_confirm_del(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     DelContext *dc = (DelContext *)user_data;
-    if (dc->is_teacher) teacher_service_delete(dc->id);
-    else staff_service_delete(dc->id);
+    if (dc->is_teacher) {
+        if (teacher_service_delete(dc->id)) {
+            show_status_message(dc->tvw, "Teacher removed successfully.", true);
+        } else {
+            show_status_message(dc->tvw, "Failed to remove teacher.", false);
+        }
+    } else {
+        if (staff_service_delete(dc->id)) {
+            show_status_message(dc->tvw, "Staff member removed successfully.", true);
+        } else {
+            show_status_message(dc->tvw, "Failed to remove staff member.", false);
+        }
+    }
 
     refresh_table(dc->tvw);
     gtk_window_destroy(GTK_WINDOW(dc->dialog));
@@ -838,6 +890,12 @@ GtkWidget *school_teacher_view_new(void)
     gtk_box_append(GTK_BOX(header_row), add_btn);
 
     gtk_box_append(GTK_BOX(main_box), header_row);
+
+    /* ── Status Banner ───────────────────────────────────────────── */
+    tvw->status_banner = gtk_label_new("");
+    gtk_widget_add_css_class(tvw->status_banner, "card");
+    gtk_widget_set_visible(tvw->status_banner, FALSE);
+    gtk_box_append(GTK_BOX(main_box), tvw->status_banner);
 
     /* Segmented Tab Bar */
     GtkWidget *tab_card = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
