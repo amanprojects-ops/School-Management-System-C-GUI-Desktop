@@ -5,6 +5,7 @@
 
 #include "dashboard.h"
 #include "ui/window.h"
+#include "app.h"
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
@@ -414,17 +415,34 @@ GtkWidget *school_dashboard_new(void)
     GtkWidget *welcome = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
     gtk_widget_add_css_class(welcome, "welcome-banner");
 
+    GtkWidget *welcome_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+    gtk_widget_set_hexpand(welcome_row, TRUE);
+
+    GtkWidget *text_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+    gtk_widget_set_hexpand(text_box, TRUE);
+
     GtkWidget *greeting = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(greeting),
-        "<span size='x-large' weight='bold'>Welcome to SchoolCMS Dashboard</span>");
+    char greet_markup[256];
+    snprintf(greet_markup, sizeof(greet_markup),
+             "<span size='x-large' weight='bold'>Welcome to %s Dashboard</span>", APP_NAME);
+    gtk_label_set_markup(GTK_LABEL(greeting), greet_markup);
     gtk_label_set_xalign(GTK_LABEL(greeting), 0.0f);
-    gtk_box_append(GTK_BOX(welcome), greeting);
+    gtk_box_append(GTK_BOX(text_box), greeting);
 
     GtkWidget *sub_greeting = gtk_label_new(
         "Real-time overview of academic performance, attendance, and administrative statistics.");
     gtk_label_set_xalign(GTK_LABEL(sub_greeting), 0.0f);
     gtk_widget_add_css_class(sub_greeting, "dim-label");
-    gtk_box_append(GTK_BOX(welcome), sub_greeting);
+    gtk_box_append(GTK_BOX(text_box), sub_greeting);
+    gtk_box_append(GTK_BOX(welcome_row), text_box);
+
+    /* Dynamic Version Badge */
+    GtkWidget *ver_badge = gtk_label_new(APP_NAME " v" APP_VERSION "  •  Active Release");
+    gtk_widget_add_css_class(ver_badge, "badge-adm");
+    gtk_widget_set_valign(ver_badge, GTK_ALIGN_CENTER);
+    gtk_box_append(GTK_BOX(welcome_row), ver_badge);
+
+    gtk_box_append(GTK_BOX(welcome), welcome_row);
     gtk_box_append(GTK_BOX(main_box), welcome);
 
     /* Stat Cards Row 1 */
