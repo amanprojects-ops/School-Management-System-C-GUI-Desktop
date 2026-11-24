@@ -7,3 +7,8 @@ if "%~1"=="" (
 ) else (
     python scripts\bump_version.py %*
 )
+if %ERRORLEVEL% NEQ 0 (
+    echo.
+    echo [ERROR] Version bump failed with code %ERRORLEVEL%
+)
+pause
