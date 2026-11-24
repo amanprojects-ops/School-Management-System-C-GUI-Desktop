@@ -12,7 +12,7 @@
 #include <gtk/gtk.h>
 
 /** Width of the sidebar in pixels. */
-#define SIDEBAR_WIDTH 240
+#define SIDEBAR_WIDTH 220
 
 /**
  * @brief Create the sidebar widget.
