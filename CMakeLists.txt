@@ -50,6 +50,10 @@ set(SOURCES
 )
 
 # Build executable
+if(WIN32)
+    list(APPEND SOURCES src/app.rc)
+endif()
+
 add_executable(${PROJECT_NAME} WIN32 ${SOURCES})
 
 # Include directories
