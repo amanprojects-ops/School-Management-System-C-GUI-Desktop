@@ -134,6 +134,34 @@ def apply_rebranding(old_name, new_name, old_icon, new_icon, old_school, new_sch
         print(f"Updating default school seed: '{old_school}' -> '{new_school}'")
     print("-" * 65)
 
+    # Check if new_icon is a PNG image file or path
+    is_image_file = False
+    clean_icon_path = ""
+    if new_icon:
+        clean_icon_path = new_icon.strip('"').strip("'")
+        if os.path.isfile(clean_icon_path) or clean_icon_path.lower().endswith(('.png', '.svg', '.jpg', '.jpeg', '.ico')):
+            is_image_file = True
+            dest_img = os.path.join(REPO_ROOT, "assets", "images", "app_logo.png")
+            os.makedirs(os.path.dirname(dest_img), exist_ok=True)
+            if os.path.isfile(clean_icon_path) and not dry_run:
+                if os.path.abspath(clean_icon_path) != os.path.abspath(dest_img):
+                    shutil.copy2(clean_icon_path, dest_img)
+                    print(f"  [COPIED] {clean_icon_path} -> assets/images/app_logo.png")
+            
+            # Automatically generate assets/icons/app.ico using Pillow
+            if not dry_run:
+                target_src = dest_img if os.path.exists(dest_img) else clean_icon_path
+                if os.path.exists(target_src):
+                    try:
+                        from PIL import Image
+                        img = Image.open(target_src)
+                        ico_dst = os.path.join(REPO_ROOT, "assets", "icons", "app.ico")
+                        os.makedirs(os.path.dirname(ico_dst), exist_ok=True)
+                        img.save(ico_dst, format='ICO', sizes=[(16,16), (32,32), (48,48), (256,256)])
+                        print(f"  [GENERATED] Windows Icon: assets/icons/app.ico")
+                    except Exception as e:
+                        print(f"  [NOTE] ICO generation: {e}")
+
     name_pattern = rf'(?:{re.escape(old_name)}|SchoolCMS)'
     new_app_id = f"com.{new_name.lower().replace('-', '').replace('_', '')}.app"
     old_app_id_pattern = r'gtk_application_new\(\s*"com\.[a-z0-9_-]+\.app"'
@@ -157,7 +185,7 @@ def apply_rebranding(old_name, new_name, old_icon, new_icon, old_school, new_sch
         (rf'"{name_pattern}\s+v(\d+\.\d+\.\d+)\s+•\s+Authenticated"',
          rf'"{new_name} v\1  •  Authenticated"'),
     ]
-    if new_icon:
+    if new_icon and not is_image_file:
         win_replacements.append((
             rf'gtk_window_set_icon_name\(GTK_WINDOW\(window\),\s*"[^"]+"\);',
             f'gtk_window_set_icon_name(GTK_WINDOW(window), "{new_icon}");'
@@ -171,9 +199,14 @@ def apply_rebranding(old_name, new_name, old_icon, new_icon, old_school, new_sch
         (rf'"{name_pattern}\s+v(\d+\.\d+\.\d+)"',
          rf'"{new_name} v\1"'),
     ]
-    if new_icon:
+    if is_image_file:
         side_replacements.append((
-            rf'gtk_image_new_from_icon_name\("[^"]+"\)',
+            r'gtk_image_new_from_(?:icon_name|file)\("[^"]+"\)',
+            'gtk_image_new_from_file("assets/images/app_logo.png")'
+        ))
+    elif new_icon:
+        side_replacements.append((
+            r'gtk_image_new_from_(?:icon_name|file)\("[^"]+"\)',
             f'gtk_image_new_from_icon_name("{new_icon}")'
         ))
     update_file("src/ui/sidebar.c", side_replacements, dry_run)
@@ -183,9 +216,14 @@ def apply_rebranding(old_name, new_name, old_icon, new_icon, old_school, new_sch
         (rf"<span size='xx-large' weight='bold'>{name_pattern}</span>",
          f"<span size='xx-large' weight='bold'>{new_name}</span>"),
     ]
-    if new_icon:
+    if is_image_file:
         login_replacements.append((
-            rf'gtk_image_new_from_icon_name\("[^"]+"\)',
+            r'gtk_image_new_from_(?:icon_name|file)\("[^"]+"\)',
+            'gtk_image_new_from_file("assets/images/app_logo.png")'
+        ))
+    elif new_icon:
+        login_replacements.append((
+            r'gtk_image_new_from_(?:icon_name|file)\("[^"]+"\)',
             f'gtk_image_new_from_icon_name("{new_icon}")'
         ))
     update_file("src/ui/login.c", login_replacements, dry_run)
@@ -305,14 +343,20 @@ def interactive_wizard():
         if not new_name:
             new_name = old_name
 
-        print("\nCommon education icons:")
+        print("\nIcon options:")
         print("  1) applications-education-symbolic (Default school cap & book)")
         print("  2) school-symbolic (School building)")
         print("  3) system-users-symbolic (Faculty & student group)")
         print("  4) org.gnome.Education-symbolic (Academic logo)")
-        print("  5) Keep current icon")
+        print("  5) Custom PNG image file (enter path or drag & drop .png)")
+        print("  6) Keep current icon")
 
-        icon_choice = input(f"Select icon [1-5] or enter custom icon name (default: keep current): ").strip()
+        # Check if known custom icon exists in Downloads
+        dl_icon = os.path.expanduser(r"~\Downloads\aman_projects_app_icon_transparent.png")
+        if os.path.exists(dl_icon):
+            print(f"     [Found in Downloads: {dl_icon}]")
+
+        icon_choice = input(f"Select icon [1-6] or enter path/name (default: keep current): ").strip().strip('"').strip("'")
         icon_map = {
             "1": "applications-education-symbolic",
             "2": "school-symbolic",
@@ -321,7 +365,11 @@ def interactive_wizard():
         }
         if icon_choice in icon_map:
             new_icon = icon_map[icon_choice]
-        elif icon_choice and icon_choice != "5":
+        elif icon_choice == "5":
+            prompt_def = dl_icon if os.path.exists(dl_icon) else ""
+            custom_path = input(f"Enter path to PNG file (press Enter to use {prompt_def}): ").strip().strip('"').strip("'")
+            new_icon = custom_path if custom_path else (prompt_def if prompt_def else old_icon)
+        elif icon_choice and icon_choice != "6":
             new_icon = icon_choice
         else:
             new_icon = old_icon
