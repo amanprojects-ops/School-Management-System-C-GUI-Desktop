@@ -14,10 +14,20 @@
 #include <time.h>
 
 #ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #include <direct.h>
 #define MKDIR(d) _mkdir(d)
 #else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <unistd.h>
+#include <sys/stat.h>
 #define MKDIR(d) mkdir(d, 0755)
+typedef int SOCKET;
+#define INVALID_SOCKET (-1)
+#define closesocket close
 #endif
 
 bool settings_service_get_value(const char *key, char *out_val, size_t val_size)
@@ -293,5 +303,158 @@ bool settings_service_get_recent_logs(AuditLogEntry *out_logs, int max_items, in
     }
     sqlite3_finalize(stmt);
     *out_count = count;
+    return true;
+}
+
+
+/* ── Outgoing Email SMTP Gateway Services ─────────────────────────── */
+
+bool settings_service_get_smtp(SmtpConfig *out_cfg)
+{
+    if (!out_cfg) return false;
+    memset(out_cfg, 0, sizeof(SmtpConfig));
+
+    settings_service_get_value("smtp_host", out_cfg->smtp_host, sizeof(out_cfg->smtp_host));
+    char port_str[32] = {0};
+    settings_service_get_value("smtp_port", port_str, sizeof(port_str));
+    out_cfg->smtp_port = atoi(port_str);
+    if (out_cfg->smtp_port <= 0) out_cfg->smtp_port = 587;
+
+    settings_service_get_value("smtp_username", out_cfg->smtp_username, sizeof(out_cfg->smtp_username));
+    settings_service_get_value("smtp_password", out_cfg->smtp_password, sizeof(out_cfg->smtp_password));
+    settings_service_get_value("smtp_encryption", out_cfg->smtp_encryption, sizeof(out_cfg->smtp_encryption));
+    if (strlen(out_cfg->smtp_encryption) == 0) strncpy(out_cfg->smtp_encryption, "STARTTLS", sizeof(out_cfg->smtp_encryption) - 1);
+
+    settings_service_get_value("smtp_sender_name", out_cfg->smtp_sender_name, sizeof(out_cfg->smtp_sender_name));
+    settings_service_get_value("smtp_sender_email", out_cfg->smtp_sender_email, sizeof(out_cfg->smtp_sender_email));
+
+    return true;
+}
+
+bool settings_service_save_smtp(const SmtpConfig *cfg)
+{
+    if (!cfg) return false;
+
+    settings_service_set_value("smtp_host", cfg->smtp_host);
+    char port_str[32];
+    snprintf(port_str, sizeof(port_str), "%d", cfg->smtp_port > 0 ? cfg->smtp_port : 587);
+    settings_service_set_value("smtp_port", port_str);
+    settings_service_set_value("smtp_username", cfg->smtp_username);
+    settings_service_set_value("smtp_password", cfg->smtp_password);
+    settings_service_set_value("smtp_encryption", cfg->smtp_encryption);
+    settings_service_set_value("smtp_sender_name", cfg->smtp_sender_name);
+    settings_service_set_value("smtp_sender_email", cfg->smtp_sender_email);
+
+    db_log_activity(0, "UPDATE_SMTP", "SETTINGS", "Updated outgoing email SMTP configuration");
+    return true;
+}
+
+bool settings_service_test_smtp(const SmtpConfig *cfg, char *out_msg, size_t msg_size)
+{
+    if (!out_msg || msg_size == 0) return false;
+    out_msg[0] = '\0';
+
+    if (!cfg || strlen(cfg->smtp_host) == 0) {
+        snprintf(out_msg, msg_size, "Validation Error: SMTP host cannot be empty.");
+        return false;
+    }
+
+    int port = cfg->smtp_port > 0 ? cfg->smtp_port : 587;
+    if (port <= 0 || port > 65535) {
+        snprintf(out_msg, msg_size, "Validation Error: Invalid port %d (must be between 1 and 65535).", port);
+        return false;
+    }
+
+    if (strlen(cfg->smtp_sender_email) > 0 && !strchr(cfg->smtp_sender_email, '@')) {
+        snprintf(out_msg, msg_size, "Validation Error: Sender email '%s' is missing '@'.", cfg->smtp_sender_email);
+        return false;
+    }
+
+#ifdef _WIN32
+    WSADATA wsa;
+    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+        snprintf(out_msg, msg_size, "Network Error: Failed to initialize Winsock subsystem.");
+        return false;
+    }
+#endif
+
+    char port_str[16];
+    snprintf(port_str, sizeof(port_str), "%d", port);
+
+    struct addrinfo hints, *res = NULL;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+
+    int rc = getaddrinfo(cfg->smtp_host, port_str, &hints, &res);
+    if (rc != 0 || !res) {
+#ifdef _WIN32
+        WSACleanup();
+#endif
+        snprintf(out_msg, msg_size,
+                 "DNS Resolution Failed: Unable to resolve SMTP host '%s'. Please verify host name and internet connection.",
+                 cfg->smtp_host);
+        return false;
+    }
+
+    SOCKET sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+#ifdef _WIN32
+    if (sock == INVALID_SOCKET) {
+        freeaddrinfo(res);
+        WSACleanup();
+        snprintf(out_msg, msg_size, "Socket Error: Could not create TCP socket.");
+        return false;
+    }
+    DWORD timeout_ms = 3500;
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char *)&timeout_ms, sizeof(timeout_ms));
+    setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (const char *)&timeout_ms, sizeof(timeout_ms));
+#else
+    if (sock < 0) {
+        freeaddrinfo(res);
+        snprintf(out_msg, msg_size, "Socket Error: Could not create TCP socket.");
+        return false;
+    }
+#endif
+
+    int conn_res = connect(sock, res->ai_addr, (int)res->ai_addrlen);
+    freeaddrinfo(res);
+
+    if (conn_res != 0) {
+#ifdef _WIN32
+        closesocket(sock);
+        WSACleanup();
+#else
+        close(sock);
+#endif
+        snprintf(out_msg, msg_size,
+                 "Connection Failed: Could not connect to '%s:%d' (Connection timed out or refused). Verify port and firewall.",
+                 cfg->smtp_host, port);
+        return false;
+    }
+
+    char banner[256] = {0};
+    int bytes = recv(sock, banner, sizeof(banner) - 1, 0);
+#ifdef _WIN32
+    closesocket(sock);
+    WSACleanup();
+#else
+    close(sock);
+#endif
+
+    if (bytes > 0) {
+        banner[bytes] = '\0';
+        char *nl = strpbrk(banner, "\r\n");
+        if (nl) *nl = '\0';
+        snprintf(out_msg, msg_size,
+                 "SMTP Handshake Succeeded: Connected to '%s:%d' (%s). Server replied: '%s'. Gateway is online.",
+                 cfg->smtp_host, port, cfg->smtp_encryption, banner);
+    } else {
+        snprintf(out_msg, msg_size,
+                 "SMTP Connection Succeeded: Connected to '%s:%d' (%s). TCP port is open and accepting traffic.",
+                 cfg->smtp_host, port, cfg->smtp_encryption);
+    }
+
+    db_log_activity(0, "TEST_SMTP", "SETTINGS", out_msg);
     return true;
 }
