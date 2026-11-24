@@ -310,3 +310,416 @@ bool auth_has_role(UserRole role)
 {
     return (s_current_session.is_authenticated && s_current_session.role_id == (int)role);
 }
+
+/* ── Password Reset & Administration Services ─────────────────────── */
+
+AuthResult auth_change_password(int user_id, const char *old_password, const char *new_password)
+{
+    if (user_id <= 0 || !old_password || !new_password) return AUTH_ERR_PARAM;
+    if (strlen(new_password) < 6) return AUTH_ERR_PARAM;
+
+    sqlite3 *db = db_get_handle();
+    if (!db) return AUTH_ERR_DATABASE;
+
+    const char *sel_sql = "SELECT username, password_hash, salt FROM users WHERE id = ?;";
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(db, sel_sql, -1, &stmt, NULL) != SQLITE_OK) return AUTH_ERR_DATABASE;
+
+    sqlite3_bind_int(stmt, 1, user_id);
+    if (sqlite3_step(stmt) != SQLITE_ROW) {
+        sqlite3_finalize(stmt);
+        return AUTH_ERR_NOT_FOUND;
+    }
+
+    char username[64];
+    const char *u = (const char *)sqlite3_column_text(stmt, 0);
+    strncpy(username, u ? u : "user", sizeof(username) - 1);
+    username[sizeof(username) - 1] = '\0';
+
+    const char *stored_hash = (const char *)sqlite3_column_text(stmt, 1);
+    const char *stored_salt = (const char *)sqlite3_column_text(stmt, 2);
+
+    char computed_hash[HASH_BYTE_LEN * 2 + 1];
+    if (!auth_hash_password(old_password, stored_salt, computed_hash, sizeof(computed_hash))) {
+        sqlite3_finalize(stmt);
+        return AUTH_ERR_DATABASE;
+    }
+
+    if (strcmp(stored_hash, computed_hash) != 0) {
+        sqlite3_finalize(stmt);
+        db_log_activity(user_id, "PWD_CHANGE_FAILED", "AUTH", "Old password verification failed");
+        return AUTH_ERR_INVALID_CREDENTIALS;
+    }
+    sqlite3_finalize(stmt);
+
+    char new_salt[SALT_BYTE_LEN * 2 + 1];
+    char new_hash[HASH_BYTE_LEN * 2 + 1];
+    if (!auth_generate_salt(new_salt, sizeof(new_salt)) ||
+        !auth_hash_password(new_password, new_salt, new_hash, sizeof(new_hash))) {
+        return AUTH_ERR_DATABASE;
+    }
+
+    const char *upd_sql =
+        "UPDATE users SET password_hash = ?, salt = ?, failed_attempts = 0, "
+        "                 locked_until = NULL, updated_at = CURRENT_TIMESTAMP "
+        "WHERE id = ?;";
+    if (sqlite3_prepare_v2(db, upd_sql, -1, &stmt, NULL) != SQLITE_OK) return AUTH_ERR_DATABASE;
+
+    sqlite3_bind_text(stmt, 1, new_hash, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, new_salt, -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 3, user_id);
+
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE) return AUTH_ERR_DATABASE;
+
+    db_log_activity(user_id, "PWD_CHANGE_SUCCESS", "AUTH", username);
+    return AUTH_SUCCESS;
+}
+
+AuthResult auth_admin_reset_password(int target_user_id, const char *new_password)
+{
+    if (target_user_id <= 0 || !new_password) return AUTH_ERR_PARAM;
+    if (strlen(new_password) < 6) return AUTH_ERR_PARAM;
+
+    sqlite3 *db = db_get_handle();
+    if (!db) return AUTH_ERR_DATABASE;
+
+    const char *sel_sql = "SELECT username FROM users WHERE id = ?;";
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(db, sel_sql, -1, &stmt, NULL) != SQLITE_OK) return AUTH_ERR_DATABASE;
+
+    sqlite3_bind_int(stmt, 1, target_user_id);
+    if (sqlite3_step(stmt) != SQLITE_ROW) {
+        sqlite3_finalize(stmt);
+        return AUTH_ERR_NOT_FOUND;
+    }
+
+    char username[64];
+    const char *u = (const char *)sqlite3_column_text(stmt, 0);
+    strncpy(username, u ? u : "user", sizeof(username) - 1);
+    username[sizeof(username) - 1] = '\0';
+    sqlite3_finalize(stmt);
+
+    char new_salt[SALT_BYTE_LEN * 2 + 1];
+    char new_hash[HASH_BYTE_LEN * 2 + 1];
+    if (!auth_generate_salt(new_salt, sizeof(new_salt)) ||
+        !auth_hash_password(new_password, new_salt, new_hash, sizeof(new_hash))) {
+        return AUTH_ERR_DATABASE;
+    }
+
+    const char *upd_sql =
+        "UPDATE users SET password_hash = ?, salt = ?, failed_attempts = 0, "
+        "                 locked_until = NULL, updated_at = CURRENT_TIMESTAMP "
+        "WHERE id = ?;";
+    if (sqlite3_prepare_v2(db, upd_sql, -1, &stmt, NULL) != SQLITE_OK) return AUTH_ERR_DATABASE;
+
+    sqlite3_bind_text(stmt, 1, new_hash, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, new_salt, -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 3, target_user_id);
+
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE) return AUTH_ERR_DATABASE;
+
+    char details[128];
+    snprintf(details, sizeof(details), "Admin reset password for user: %s", username);
+    db_log_activity(s_current_session.user_id, "ADMIN_RESET_PWD", "AUTH", details);
+    return AUTH_SUCCESS;
+}
+
+bool auth_get_all_users(ManagedUser *out_users, int max_users, int *out_count)
+{
+    if (!out_users || max_users <= 0 || !out_count) return false;
+    *out_count = 0;
+
+    sqlite3 *db = db_get_handle();
+    if (!db) return false;
+
+    const char *sql =
+        "SELECT u.id, u.username, u.full_name, u.role_id, r.name, "
+        "       COALESCE(u.email, ''), COALESCE(u.phone, ''), u.status, "
+        "       u.failed_attempts, u.created_at "
+        "FROM users u "
+        "JOIN roles r ON u.role_id = r.id "
+        "ORDER BY u.id ASC;";
+
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+
+    int idx = 0;
+    while (sqlite3_step(stmt) == SQLITE_ROW && idx < max_users) {
+        out_users[idx].id = sqlite3_column_int(stmt, 0);
+
+        const char *txt = (const char *)sqlite3_column_text(stmt, 1);
+        strncpy(out_users[idx].username, txt ? txt : "", sizeof(out_users[idx].username) - 1);
+
+        txt = (const char *)sqlite3_column_text(stmt, 2);
+        strncpy(out_users[idx].full_name, txt ? txt : "", sizeof(out_users[idx].full_name) - 1);
+
+        out_users[idx].role_id = sqlite3_column_int(stmt, 3);
+
+        txt = (const char *)sqlite3_column_text(stmt, 4);
+        strncpy(out_users[idx].role_name, txt ? txt : "", sizeof(out_users[idx].role_name) - 1);
+
+        txt = (const char *)sqlite3_column_text(stmt, 5);
+        strncpy(out_users[idx].email, txt ? txt : "", sizeof(out_users[idx].email) - 1);
+
+        txt = (const char *)sqlite3_column_text(stmt, 6);
+        strncpy(out_users[idx].phone, txt ? txt : "", sizeof(out_users[idx].phone) - 1);
+
+        txt = (const char *)sqlite3_column_text(stmt, 7);
+        strncpy(out_users[idx].status, txt ? txt : "ACTIVE", sizeof(out_users[idx].status) - 1);
+
+        out_users[idx].failed_attempts = sqlite3_column_int(stmt, 8);
+
+        txt = (const char *)sqlite3_column_text(stmt, 9);
+        strncpy(out_users[idx].created_at, txt ? txt : "", sizeof(out_users[idx].created_at) - 1);
+
+        idx++;
+    }
+    sqlite3_finalize(stmt);
+    *out_count = idx;
+    return true;
+}
+
+AuthResult auth_update_user(int user_id, const char *full_name, const char *email,
+                            const char *phone, int role_id, const char *status)
+{
+    if (user_id <= 0 || !full_name || role_id <= 0 || !status) return AUTH_ERR_PARAM;
+
+    sqlite3 *db = db_get_handle();
+    if (!db) return AUTH_ERR_DATABASE;
+
+    /* Verify if user is last active admin and attempting to demote or deactivate */
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(db, "SELECT role_id, status FROM users WHERE id = ?;", -1, &stmt, NULL) != SQLITE_OK) {
+        return AUTH_ERR_DATABASE;
+    }
+    sqlite3_bind_int(stmt, 1, user_id);
+    if (sqlite3_step(stmt) != SQLITE_ROW) {
+        sqlite3_finalize(stmt);
+        return AUTH_ERR_NOT_FOUND;
+    }
+
+    int curr_role = sqlite3_column_int(stmt, 0);
+    const char *curr_status = (const char *)sqlite3_column_text(stmt, 1);
+    bool was_active_admin = (curr_role == ROLE_ADMIN && curr_status && strcmp(curr_status, "ACTIVE") == 0);
+    sqlite3_finalize(stmt);
+
+    if (was_active_admin && (role_id != ROLE_ADMIN || strcmp(status, "ACTIVE") != 0)) {
+        /* Check if other active admins exist */
+        int admin_count = 0;
+        if (sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM users WHERE role_id = 1 AND status = 'ACTIVE';", -1, &stmt, NULL) == SQLITE_OK) {
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                admin_count = sqlite3_column_int(stmt, 0);
+            }
+            sqlite3_finalize(stmt);
+        }
+        if (admin_count <= 1) {
+            return AUTH_ERR_LAST_ADMIN;
+        }
+    }
+
+    const char *sql =
+        "UPDATE users SET full_name = ?, email = ?, phone = ?, role_id = ?, status = ?, updated_at = CURRENT_TIMESTAMP "
+        "WHERE id = ?;";
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return AUTH_ERR_DATABASE;
+
+    sqlite3_bind_text(stmt, 1, full_name, -1, SQLITE_STATIC);
+    if (email && strlen(email) > 0) sqlite3_bind_text(stmt, 2, email, -1, SQLITE_STATIC);
+    else sqlite3_bind_null(stmt, 2);
+    if (phone && strlen(phone) > 0) sqlite3_bind_text(stmt, 3, phone, -1, SQLITE_STATIC);
+    else sqlite3_bind_null(stmt, 3);
+    sqlite3_bind_int(stmt, 4, role_id);
+    sqlite3_bind_text(stmt, 5, status, -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 6, user_id);
+
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE) return AUTH_ERR_DATABASE;
+
+    char details[128];
+    snprintf(details, sizeof(details), "Updated user ID %d profile and status: %s", user_id, status);
+    db_log_activity(s_current_session.user_id, "UPDATE_USER", "AUTH", details);
+    return AUTH_SUCCESS;
+}
+
+AuthResult auth_toggle_user_status(int user_id)
+{
+    if (user_id <= 0) return AUTH_ERR_PARAM;
+    if (s_current_session.is_authenticated && s_current_session.user_id == user_id) {
+        return AUTH_ERR_PARAM; /* Cannot deactivate logged-in user */
+    }
+
+    sqlite3 *db = db_get_handle();
+    if (!db) return AUTH_ERR_DATABASE;
+
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(db, "SELECT status, role_id, username FROM users WHERE id = ?;", -1, &stmt, NULL) != SQLITE_OK) {
+        return AUTH_ERR_DATABASE;
+    }
+    sqlite3_bind_int(stmt, 1, user_id);
+    if (sqlite3_step(stmt) != SQLITE_ROW) {
+        sqlite3_finalize(stmt);
+        return AUTH_ERR_NOT_FOUND;
+    }
+
+    const char *curr_status = (const char *)sqlite3_column_text(stmt, 0);
+    int role_id = sqlite3_column_int(stmt, 1);
+    char uname[64];
+    const char *u = (const char *)sqlite3_column_text(stmt, 2);
+    strncpy(uname, u ? u : "user", sizeof(uname) - 1);
+    uname[sizeof(uname) - 1] = '\0';
+    bool is_active = (curr_status && strcmp(curr_status, "ACTIVE") == 0);
+    sqlite3_finalize(stmt);
+
+    if (is_active && role_id == ROLE_ADMIN) {
+        int admin_count = 0;
+        if (sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM users WHERE role_id = 1 AND status = 'ACTIVE';", -1, &stmt, NULL) == SQLITE_OK) {
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                admin_count = sqlite3_column_int(stmt, 0);
+            }
+            sqlite3_finalize(stmt);
+        }
+        if (admin_count <= 1) {
+            return AUTH_ERR_LAST_ADMIN;
+        }
+    }
+
+    const char *new_status = is_active ? "INACTIVE" : "ACTIVE";
+    const char *upd = "UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;";
+    if (sqlite3_prepare_v2(db, upd, -1, &stmt, NULL) != SQLITE_OK) return AUTH_ERR_DATABASE;
+
+    sqlite3_bind_text(stmt, 1, new_status, -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 2, user_id);
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE) return AUTH_ERR_DATABASE;
+
+    char details[128];
+    snprintf(details, sizeof(details), "User %s status changed to %s", uname, new_status);
+    db_log_activity(s_current_session.user_id, "TOGGLE_USER_STATUS", "AUTH", details);
+    return AUTH_SUCCESS;
+}
+
+bool auth_get_role_permissions(int role_id, RolePermission *out_perms, int max_perms, int *out_count)
+{
+    if (role_id <= 0 || !out_perms || max_perms <= 0 || !out_count) return false;
+    *out_count = 0;
+
+    sqlite3 *db = db_get_handle();
+    if (!db) return false;
+
+    const char *sql =
+        "SELECT id, role_id, module_name, can_view, can_edit "
+        "FROM role_permissions "
+        "WHERE role_id = ? "
+        "ORDER BY id ASC;";
+
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+
+    sqlite3_bind_int(stmt, 1, role_id);
+
+    int idx = 0;
+    while (sqlite3_step(stmt) == SQLITE_ROW && idx < max_perms) {
+        out_perms[idx].id = sqlite3_column_int(stmt, 0);
+        out_perms[idx].role_id = sqlite3_column_int(stmt, 1);
+
+        const char *txt = (const char *)sqlite3_column_text(stmt, 2);
+        strncpy(out_perms[idx].module_name, txt ? txt : "", sizeof(out_perms[idx].module_name) - 1);
+
+        out_perms[idx].can_view = (sqlite3_column_int(stmt, 3) != 0);
+        out_perms[idx].can_edit = (sqlite3_column_int(stmt, 4) != 0);
+
+        idx++;
+    }
+    sqlite3_finalize(stmt);
+    *out_count = idx;
+    return true;
+}
+
+bool auth_set_role_permission(int role_id, const char *module_name, bool can_view, bool can_edit)
+{
+    if (role_id <= 0 || !module_name || strlen(module_name) == 0) return false;
+
+    /* Safety rule: Administrator role always retains full view and edit privileges */
+    if (role_id == ROLE_ADMIN) {
+        can_view = true;
+        can_edit = true;
+    }
+
+    sqlite3 *db = db_get_handle();
+    if (!db) return false;
+
+    const char *sql =
+        "INSERT INTO role_permissions (role_id, module_name, can_view, can_edit) "
+        "VALUES (?, ?, ?, ?) "
+        "ON CONFLICT(role_id, module_name) DO UPDATE SET "
+        "    can_view = excluded.can_view, "
+        "    can_edit = excluded.can_edit;";
+
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+
+    sqlite3_bind_int(stmt, 1, role_id);
+    sqlite3_bind_text(stmt, 2, module_name, -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 3, can_view ? 1 : 0);
+    sqlite3_bind_int(stmt, 4, can_edit ? 1 : 0);
+
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE) return false;
+
+    char details[128];
+    snprintf(details, sizeof(details), "Updated permission role %d module %s (view:%d edit:%d)",
+             role_id, module_name, can_view ? 1 : 0, can_edit ? 1 : 0);
+    db_log_activity(s_current_session.user_id, "UPDATE_ROLE_PERM", "AUTH", details);
+    return true;
+}
+
+bool auth_user_can_access(int user_id, const char *module_name, bool require_edit)
+{
+    if (user_id <= 0 || !module_name) return false;
+
+    sqlite3 *db = db_get_handle();
+    if (!db) return false;
+
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(db, "SELECT role_id FROM users WHERE id = ?;", -1, &stmt, NULL) != SQLITE_OK) {
+        return false;
+    }
+    sqlite3_bind_int(stmt, 1, user_id);
+    if (sqlite3_step(stmt) != SQLITE_ROW) {
+        sqlite3_finalize(stmt);
+        return false;
+    }
+    int role_id = sqlite3_column_int(stmt, 0);
+    sqlite3_finalize(stmt);
+
+    /* Admin role bypass: full access to everything */
+    if (role_id == ROLE_ADMIN) {
+        return true;
+    }
+
+    const char *sql = "SELECT can_view, can_edit FROM role_permissions WHERE role_id = ? AND module_name = ?;";
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+
+    sqlite3_bind_int(stmt, 1, role_id);
+    sqlite3_bind_text(stmt, 2, module_name, -1, SQLITE_STATIC);
+
+    bool allowed = false;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        bool cv = (sqlite3_column_int(stmt, 0) != 0);
+        bool ce = (sqlite3_column_int(stmt, 1) != 0);
+        allowed = require_edit ? ce : cv;
+    }
+    sqlite3_finalize(stmt);
+    return allowed;
+}
