@@ -170,10 +170,19 @@ GtkWidget *school_login_view_new(LoginSuccessCallback on_success, gpointer user_
     gtk_box_append(GTK_BOX(center_box), card);
     gtk_box_append(GTK_BOX(root), center_box);
 
-    /* Store cleanup pointer */
-    g_object_set_data_full(G_OBJECT(root), "login_widgets", lw, g_free);
+    /* Wrap in scrolled window so small displays or custom resized windows can scroll */
+    GtkWidget *scrolled = gtk_scrolled_window_new();
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
+                                  GTK_POLICY_AUTOMATIC,
+                                  GTK_POLICY_AUTOMATIC);
+    gtk_widget_set_hexpand(scrolled, TRUE);
+    gtk_widget_set_vexpand(scrolled, TRUE);
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), root);
 
-    return root;
+    /* Store cleanup pointer */
+    g_object_set_data_full(G_OBJECT(scrolled), "login_widgets", lw, g_free);
+
+    return scrolled;
 }
 
 void school_login_view_reset(GtkWidget *view)
