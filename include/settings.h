@@ -48,6 +48,19 @@ typedef struct {
     long file_size_bytes;       /* Size in bytes */
 } BackupInfo;
 
+/**
+ * @brief Outgoing Email SMTP Configuration Model
+ */
+typedef struct {
+    char smtp_host[128];
+    int smtp_port;
+    char smtp_username[128];
+    char smtp_password[128];
+    char smtp_encryption[16];   /* "STARTTLS", "SSL", "NONE" */
+    char smtp_sender_email[128];
+    char smtp_sender_name[128];
+} SmtpConfig;
+
 /* ── Service Functions ────────────────────────────────────────────── */
 
 /**
@@ -100,5 +113,20 @@ bool settings_service_delete_backup(const char *filepath);
  * @brief Retrieve recent audit activity logs.
  */
 bool settings_service_get_recent_logs(AuditLogEntry *out_logs, int max_items, int *out_count);
+
+/**
+ * @brief Load SMTP configuration from database.
+ */
+bool settings_service_get_smtp(SmtpConfig *out_cfg);
+
+/**
+ * @brief Save SMTP configuration to database.
+ */
+bool settings_service_save_smtp(const SmtpConfig *cfg);
+
+/**
+ * @brief Test live connectivity to configured SMTP server.
+ */
+bool settings_service_test_smtp(const SmtpConfig *cfg, char *out_msg, size_t msg_size);
 
 #endif /* SCHOOLCMS_SETTINGS_H */
