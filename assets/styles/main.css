@@ -58,6 +58,8 @@ scrollbar slider:active {
     color: #94a3b8;
     border-right: 1px solid #1e293b;
     padding: 0;
+    min-width: 220px;
+    max-width: 220px;
 }
 
 .sidebar-brand {
