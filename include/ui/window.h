@@ -11,11 +11,11 @@
 
 #include <gtk/gtk.h>
 
-/** Minimum window dimensions. */
-#define WINDOW_MIN_WIDTH  800
-#define WINDOW_MIN_HEIGHT 500
+/** Minimum window dimensions (allows snapping to 50% split on 1280/1366 screens). */
+#define WINDOW_MIN_WIDTH  640
+#define WINDOW_MIN_HEIGHT 450
 
-/** Default window dimensions. */
+/** Default baseline window dimensions. */
 #define WINDOW_DEFAULT_WIDTH  1280
 #define WINDOW_DEFAULT_HEIGHT 720
 
