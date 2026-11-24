@@ -23,6 +23,7 @@ typedef struct {
     GtkWidget *tab_ay_btn;
     GtkWidget *content_container;
     GtkWidget *add_btn;
+    GtkWidget *status_banner;
     ActiveClassesTab current_tab;
 } ClassesViewWidgets;
 
@@ -35,6 +36,20 @@ static void show_delete_class_dialog(ClassesViewWidgets *cvw, int class_id, cons
 static void show_delete_section_dialog(ClassesViewWidgets *cvw, int section_id, const char *name);
 static void show_delete_subject_dialog(ClassesViewWidgets *cvw, int subject_id, const char *name);
 
+static void show_status_message(ClassesViewWidgets *cvw, const char *msg, bool is_success)
+{
+    if (!cvw || !cvw->status_banner) return;
+    gtk_label_set_text(GTK_LABEL(cvw->status_banner), msg);
+    if (is_success) {
+        gtk_widget_remove_css_class(cvw->status_banner, "card-kpi-red");
+        gtk_widget_add_css_class(cvw->status_banner, "card-kpi-green");
+    } else {
+        gtk_widget_remove_css_class(cvw->status_banner, "card-kpi-green");
+        gtk_widget_add_css_class(cvw->status_banner, "card-kpi-red");
+    }
+    gtk_widget_set_visible(cvw->status_banner, TRUE);
+}
+
 /* ── Tab Switch Handlers ─────────────────────────────────────────── */
 
 static void on_tab_classes_clicked(GtkButton *btn, gpointer user_data)
@@ -42,6 +57,7 @@ static void on_tab_classes_clicked(GtkButton *btn, gpointer user_data)
     (void)btn;
     ClassesViewWidgets *cvw = (ClassesViewWidgets *)user_data;
     cvw->current_tab = TAB_CLASSES;
+    if (cvw->status_banner) gtk_widget_set_visible(cvw->status_banner, FALSE);
     gtk_widget_add_css_class(cvw->tab_classes_btn, "tab-btn-active");
     gtk_widget_remove_css_class(cvw->tab_subjects_btn, "tab-btn-active");
     gtk_widget_remove_css_class(cvw->tab_ay_btn, "tab-btn-active");
@@ -54,6 +70,7 @@ static void on_tab_subjects_clicked(GtkButton *btn, gpointer user_data)
     (void)btn;
     ClassesViewWidgets *cvw = (ClassesViewWidgets *)user_data;
     cvw->current_tab = TAB_SUBJECTS;
+    if (cvw->status_banner) gtk_widget_set_visible(cvw->status_banner, FALSE);
     gtk_widget_remove_css_class(cvw->tab_classes_btn, "tab-btn-active");
     gtk_widget_add_css_class(cvw->tab_subjects_btn, "tab-btn-active");
     gtk_widget_remove_css_class(cvw->tab_ay_btn, "tab-btn-active");
@@ -66,6 +83,7 @@ static void on_tab_ay_clicked(GtkButton *btn, gpointer user_data)
     (void)btn;
     ClassesViewWidgets *cvw = (ClassesViewWidgets *)user_data;
     cvw->current_tab = TAB_ACADEMIC_YEARS;
+    if (cvw->status_banner) gtk_widget_set_visible(cvw->status_banner, FALSE);
     gtk_widget_remove_css_class(cvw->tab_classes_btn, "tab-btn-active");
     gtk_widget_remove_css_class(cvw->tab_subjects_btn, "tab-btn-active");
     gtk_widget_add_css_class(cvw->tab_ay_btn, "tab-btn-active");
@@ -548,10 +566,18 @@ static void on_save_class_dialog(GtkButton *btn, gpointer user_data)
     }
 
     if (d->class_id > 0) {
-        class_service_update(&cls);
+        if (class_service_update(&cls)) {
+            show_status_message(d->cvw, "Class details updated successfully.", true);
+        } else {
+            show_status_message(d->cvw, "Failed to update class.", false);
+        }
     } else {
         int new_id = 0;
-        class_service_create(&cls, &new_id);
+        if (class_service_create(&cls, &new_id)) {
+            show_status_message(d->cvw, "Class created successfully.", true);
+        } else {
+            show_status_message(d->cvw, "Failed to create class.", false);
+        }
     }
 
     refresh_view(d->cvw);
@@ -711,10 +737,18 @@ static void on_save_section_dialog(GtkButton *btn, gpointer user_data)
     }
 
     if (d->section_id > 0) {
-        section_service_update(&sec);
+        if (section_service_update(&sec)) {
+            show_status_message(d->cvw, "Section details updated successfully.", true);
+        } else {
+            show_status_message(d->cvw, "Failed to update section.", false);
+        }
     } else {
         int new_id = 0;
-        section_service_create(&sec, &new_id);
+        if (section_service_create(&sec, &new_id)) {
+            show_status_message(d->cvw, "Section created successfully.", true);
+        } else {
+            show_status_message(d->cvw, "Failed to create section.", false);
+        }
     }
 
     refresh_view(d->cvw);
@@ -891,10 +925,18 @@ static void on_save_subject_dialog(GtkButton *btn, gpointer user_data)
     }
 
     if (d->subject_id > 0) {
-        subject_service_update(&sub);
+        if (subject_service_update(&sub)) {
+            show_status_message(d->cvw, "Subject details updated successfully.", true);
+        } else {
+            show_status_message(d->cvw, "Failed to update subject.", false);
+        }
     } else {
         int new_id = 0;
-        subject_service_create(&sub, &new_id);
+        if (subject_service_create(&sub, &new_id)) {
+            show_status_message(d->cvw, "Subject created successfully.", true);
+        } else {
+            show_status_message(d->cvw, "Failed to create subject.", false);
+        }
     }
 
     refresh_view(d->cvw);
@@ -1156,11 +1198,23 @@ static void on_confirm_delete(GtkButton *btn, gpointer user_data)
     (void)btn;
     DeleteDialogData *d = (DeleteDialogData *)user_data;
     if (d->type == 0) {
-        class_service_delete(d->id);
+        if (class_service_delete(d->id)) {
+            show_status_message(d->cvw, "Class deleted successfully.", true);
+        } else {
+            show_status_message(d->cvw, "Failed to delete class.", false);
+        }
     } else if (d->type == 1) {
-        section_service_delete(d->id);
+        if (section_service_delete(d->id)) {
+            show_status_message(d->cvw, "Section deleted successfully.", true);
+        } else {
+            show_status_message(d->cvw, "Failed to delete section.", false);
+        }
     } else {
-        subject_service_delete(d->id);
+        if (subject_service_delete(d->id)) {
+            show_status_message(d->cvw, "Subject deleted successfully.", true);
+        } else {
+            show_status_message(d->cvw, "Failed to delete subject.", false);
+        }
     }
     refresh_view(d->cvw);
     gtk_window_destroy(GTK_WINDOW(d->dialog));
@@ -1340,6 +1394,12 @@ GtkWidget *school_classes_view_new(void)
     gtk_box_append(GTK_BOX(top_row), cvw->add_btn);
 
     gtk_box_append(GTK_BOX(box), top_row);
+
+    /* ── Status Banner ───────────────────────────────────────────── */
+    cvw->status_banner = gtk_label_new("");
+    gtk_widget_add_css_class(cvw->status_banner, "card");
+    gtk_widget_set_visible(cvw->status_banner, FALSE);
+    gtk_box_append(GTK_BOX(box), cvw->status_banner);
 
     /* ── Tab Bar ─────────────────────────────────────────────────── */
     GtkWidget *tab_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
