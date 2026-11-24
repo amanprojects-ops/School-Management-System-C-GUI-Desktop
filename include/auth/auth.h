@@ -34,7 +34,9 @@ typedef enum {
     AUTH_ERR_ACCOUNT_LOCKED,
     AUTH_ERR_INACTIVE,
     AUTH_ERR_DATABASE,
-    AUTH_ERR_PARAM
+    AUTH_ERR_PARAM,
+    AUTH_ERR_NOT_FOUND,
+    AUTH_ERR_LAST_ADMIN
 } AuthResult;
 
 /**
@@ -110,6 +112,33 @@ bool auth_is_logged_in(void);
 bool auth_has_role(UserRole role);
 
 /**
+ * @brief Managed User Information for Administrative Directory
+ */
+typedef struct {
+    int id;
+    char username[64];
+    char full_name[128];
+    int role_id;
+    char role_name[32];
+    char email[128];
+    char phone[32];
+    char status[16];          /* "ACTIVE", "INACTIVE" */
+    int failed_attempts;
+    char created_at[32];
+} ManagedUser;
+
+/**
+ * @brief Role Permission Entry
+ */
+typedef struct {
+    int id;
+    int role_id;
+    char module_name[32];
+    bool can_view;
+    bool can_edit;
+} RolePermission;
+
+/**
  * @brief Create a new user with hashed password and salt.
  *
  * @param username Unique username.
@@ -122,5 +151,46 @@ bool auth_has_role(UserRole role);
  */
 AuthResult auth_create_user(const char *username, const char *password, int role_id,
                             const char *full_name, const char *email, const char *phone);
+
+/**
+ * @brief Change user's own password with old password verification.
+ */
+AuthResult auth_change_password(int user_id, const char *old_password, const char *new_password);
+
+/**
+ * @brief Administrative direct password reset for any user.
+ */
+AuthResult auth_admin_reset_password(int target_user_id, const char *new_password);
+
+/**
+ * @brief Retrieve all registered system users.
+ */
+bool auth_get_all_users(ManagedUser *out_users, int max_users, int *out_count);
+
+/**
+ * @brief Update user profile, role, or status.
+ */
+AuthResult auth_update_user(int user_id, const char *full_name, const char *email,
+                            const char *phone, int role_id, const char *status);
+
+/**
+ * @brief Toggle user active/inactive status safely.
+ */
+AuthResult auth_toggle_user_status(int user_id);
+
+/**
+ * @brief Retrieve role permissions for a specified role ID.
+ */
+bool auth_get_role_permissions(int role_id, RolePermission *out_perms, int max_perms, int *out_count);
+
+/**
+ * @brief Update role permission for a given module.
+ */
+bool auth_set_role_permission(int role_id, const char *module_name, bool can_view, bool can_edit);
+
+/**
+ * @brief Check if a user has view/edit permission for a module.
+ */
+bool auth_user_can_access(int user_id, const char *module_name, bool require_edit);
 
 #endif /* SCHOOLCMS_AUTH_H */
