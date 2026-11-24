@@ -136,8 +136,9 @@ void school_window_new(GtkApplication *app)
     gtk_widget_set_hexpand(app_box, TRUE);
     gtk_widget_set_vexpand(app_box, TRUE);
 
-    /* Sidebar */
+    /* Sidebar (strictly fixed width, no horizontal expansion) */
     GtkWidget *sidebar = school_sidebar_new();
+    gtk_widget_set_hexpand(sidebar, FALSE);
     gtk_box_append(GTK_BOX(app_box), sidebar);
 
     /* Right pane: header on top, content below */
