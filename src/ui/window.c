@@ -246,10 +246,41 @@ void school_window_navigate(NavPage page)
     school_header_set_breadcrumb(page_titles[page]);
     school_sidebar_set_active((int)page);
 
-    if (page == NAV_SETTINGS) {
-        GtkWidget *settings_widget = gtk_stack_get_child_by_name(content_stack, page_names[NAV_SETTINGS]);
-        if (settings_widget) {
-            school_settings_view_reload(settings_widget);
+    GtkWidget *target = gtk_stack_get_child_by_name(content_stack, page_names[page]);
+    if (target) {
+        switch (page) {
+            case NAV_DASHBOARD:
+                school_dashboard_refresh(target);
+                break;
+            case NAV_STUDENTS:
+                school_student_view_reload(target);
+                break;
+            case NAV_TEACHERS:
+                school_teacher_view_reload(target);
+                break;
+            case NAV_CLASSES:
+                school_classes_view_reload(target);
+                break;
+            case NAV_ATTENDANCE:
+                school_attendance_view_reload(target);
+                break;
+            case NAV_FEES:
+                school_fees_view_reload(target);
+                break;
+            case NAV_EXAMS:
+                school_exams_view_reload(target);
+                break;
+            case NAV_TIMETABLE:
+                school_timetable_view_reload(target);
+                break;
+            case NAV_REPORTS:
+                school_reports_view_reload(target);
+                break;
+            case NAV_SETTINGS:
+                school_settings_view_reload(target);
+                break;
+            default:
+                break;
         }
     }
 }
