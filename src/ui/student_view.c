@@ -20,6 +20,7 @@ typedef struct {
     GtkWidget *pagination_label;
     GtkWidget *prev_btn;
     GtkWidget *next_btn;
+    GtkWidget *status_banner;
     StudentFilter filter;
     StudentPage current_page;
 } StudentViewWidgets;
@@ -32,6 +33,20 @@ static void show_delete_dialog(StudentViewWidgets *svw, int student_id, const ch
 static void show_id_card_dialog(StudentViewWidgets *svw, int student_id);
 static void show_bulk_id_cards_dialog(StudentViewWidgets *svw);
 static GtkWidget *create_id_card_widget(const Student *s, const SchoolSettings *settings);
+
+static void show_status_message(StudentViewWidgets *svw, const char *msg, bool is_success)
+{
+    if (!svw || !svw->status_banner) return;
+    gtk_label_set_text(GTK_LABEL(svw->status_banner), msg);
+    if (is_success) {
+        gtk_widget_remove_css_class(svw->status_banner, "card-kpi-red");
+        gtk_widget_add_css_class(svw->status_banner, "card-kpi-green");
+    } else {
+        gtk_widget_remove_css_class(svw->status_banner, "card-kpi-green");
+        gtk_widget_add_css_class(svw->status_banner, "card-kpi-red");
+    }
+    gtk_widget_set_visible(svw->status_banner, TRUE);
+}
 
 /* ── Callbacks ────────────────────────────────────────────────────── */
 
@@ -430,9 +445,18 @@ static void on_save_student(GtkButton *btn, gpointer user_data)
     strcpy(s.status, (st_sel == 1) ? "INACTIVE" : (st_sel == 2 ? "TRANSFERRED" : "ACTIVE"));
 
     if (fdd->student_id > 0) {
-        student_service_update(&s);
+        if (student_service_update(&s)) {
+            show_status_message(fdd->svw, "Student record updated successfully.", true);
+        } else {
+            show_status_message(fdd->svw, "Failed to update student record.", false);
+        }
     } else {
-        student_service_create(&s, NULL);
+        int new_id = 0;
+        if (student_service_create(&s, &new_id)) {
+            show_status_message(fdd->svw, "New student enrolled successfully.", true);
+        } else {
+            show_status_message(fdd->svw, "Failed to enroll student.", false);
+        }
     }
 
     refresh_student_table(fdd->svw);
@@ -724,11 +748,16 @@ typedef struct {
     int student_id;
 } DeleteContext;
 
+
 static void on_confirm_delete(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     DeleteContext *dc = (DeleteContext *)user_data;
-    student_service_delete(dc->student_id);
+    if (student_service_delete(dc->student_id)) {
+        show_status_message(dc->svw, "Student record deleted successfully.", true);
+    } else {
+        show_status_message(dc->svw, "Failed to delete student record.", false);
+    }
     refresh_student_table(dc->svw);
     gtk_window_destroy(GTK_WINDOW(dc->dialog));
 }
@@ -1307,6 +1336,12 @@ GtkWidget *school_student_view_new(void)
     gtk_box_append(GTK_BOX(header_row), add_btn);
 
     gtk_box_append(GTK_BOX(main_box), header_row);
+
+    /* ── Status Banner ───────────────────────────────────────────── */
+    svw->status_banner = gtk_label_new("");
+    gtk_widget_add_css_class(svw->status_banner, "card");
+    gtk_widget_set_visible(svw->status_banner, FALSE);
+    gtk_box_append(GTK_BOX(main_box), svw->status_banner);
 
     /* ── Filter / Search Bar ─────────────────────────────────────── */
     GtkWidget *filter_card = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
