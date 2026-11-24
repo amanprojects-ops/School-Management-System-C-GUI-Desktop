@@ -95,6 +95,15 @@ def get_version_files(app_name):
     """Generate replacement definitions dynamically for the detected app name."""
     return [
         {
+            "path": "include/app.h",
+            "replacements": [
+                (
+                    r'#define APP_VERSION "\d+\.\d+\.\d+"',
+                    r'#define APP_VERSION "{new}"'
+                ),
+            ],
+        },
+        {
             "path": "CMakeLists.txt",
             "replacements": [
                 (
