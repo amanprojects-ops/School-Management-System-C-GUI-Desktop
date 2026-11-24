@@ -1,0 +1,4 @@
+// Windows PE Resource Script
+// Embeds the application icon into the generated .exe binary for Windows Explorer.
+
+1 ICON "../assets/icons/app.ico"
