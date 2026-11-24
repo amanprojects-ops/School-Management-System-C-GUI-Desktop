@@ -73,7 +73,14 @@ GtkWidget *school_sidebar_new(void)
     gtk_widget_add_css_class(sep, "sidebar-separator");
     gtk_box_append(GTK_BOX(sidebar), sep);
 
-    /* ── Navigation items ───────────────────────────────────────── */
+    /* ── Navigation items (scrollable to guarantee responsiveness on small screens) ── */
+    GtkWidget *nav_scroll = gtk_scrolled_window_new();
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(nav_scroll),
+                                   GTK_POLICY_NEVER,
+                                   GTK_POLICY_AUTOMATIC);
+    gtk_widget_set_vexpand(nav_scroll, TRUE);
+    gtk_widget_set_hexpand(nav_scroll, TRUE);
+
     GtkWidget *nav_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
     gtk_widget_add_css_class(nav_box, "sidebar-nav");
     gtk_widget_set_vexpand(nav_box, TRUE);
@@ -110,7 +117,8 @@ GtkWidget *school_sidebar_new(void)
         nav_buttons[item->page] = btn;
     }
 
-    gtk_box_append(GTK_BOX(sidebar), nav_box);
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(nav_scroll), nav_box);
+    gtk_box_append(GTK_BOX(sidebar), nav_scroll);
 
     /* ── Bottom section: version info ───────────────────────────── */
     GtkWidget *bottom = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
