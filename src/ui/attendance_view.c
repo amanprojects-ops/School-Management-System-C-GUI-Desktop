@@ -32,12 +32,15 @@ typedef struct {
     GtkWidget *tab_analytics_btn;
 
     /* Filter controls */
+    GtkWidget *box_class;
     GtkWidget *combo_class;
+    GtkWidget *box_section;
     GtkWidget *combo_section;
     GtkWidget *entry_date;
     GtkWidget *combo_month;
     GtkWidget *entry_year;
 
+    GtkWidget *status_banner;
     GtkWidget *roster_container;
     GtkWidget *stats_container;
     GtkWidget *btn_save_attendance;
@@ -65,6 +68,7 @@ typedef struct {
 } AttendanceViewWidgets;
 
 static void refresh_view(AttendanceViewWidgets *avw);
+static void update_classes_dropdown(AttendanceViewWidgets *avw);
 static void update_sections_dropdown(AttendanceViewWidgets *avw);
 static void render_daily_sheet(AttendanceViewWidgets *avw);
 static void render_monthly_register(AttendanceViewWidgets *avw);
@@ -86,6 +90,7 @@ static void on_tab_daily_clicked(GtkButton *btn, gpointer user_data)
     (void)btn;
     AttendanceViewWidgets *avw = (AttendanceViewWidgets *)user_data;
     avw->current_tab = TAB_DAILY;
+    if (avw->status_banner) gtk_widget_set_visible(avw->status_banner, FALSE);
     gtk_widget_add_css_class(avw->tab_daily_btn, "tab-btn-active");
     gtk_widget_remove_css_class(avw->tab_monthly_btn, "tab-btn-active");
     gtk_widget_remove_css_class(avw->tab_analytics_btn, "tab-btn-active");
@@ -99,6 +104,7 @@ static void on_tab_monthly_clicked(GtkButton *btn, gpointer user_data)
     (void)btn;
     AttendanceViewWidgets *avw = (AttendanceViewWidgets *)user_data;
     avw->current_tab = TAB_MONTHLY;
+    if (avw->status_banner) gtk_widget_set_visible(avw->status_banner, FALSE);
     gtk_widget_remove_css_class(avw->tab_daily_btn, "tab-btn-active");
     gtk_widget_add_css_class(avw->tab_monthly_btn, "tab-btn-active");
     gtk_widget_remove_css_class(avw->tab_analytics_btn, "tab-btn-active");
@@ -112,6 +118,7 @@ static void on_tab_analytics_clicked(GtkButton *btn, gpointer user_data)
     (void)btn;
     AttendanceViewWidgets *avw = (AttendanceViewWidgets *)user_data;
     avw->current_tab = TAB_ANALYTICS;
+    if (avw->status_banner) gtk_widget_set_visible(avw->status_banner, FALSE);
     gtk_widget_remove_css_class(avw->tab_daily_btn, "tab-btn-active");
     gtk_widget_remove_css_class(avw->tab_monthly_btn, "tab-btn-active");
     gtk_widget_add_css_class(avw->tab_analytics_btn, "tab-btn-active");
@@ -199,7 +206,23 @@ static void on_save_attendance_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     AttendanceViewWidgets *avw = (AttendanceViewWidgets *)user_data;
-    if (avw->roster_count == 0 || avw->selected_class_id <= 0) return;
+    if (!avw) return;
+
+    if (avw->selected_class_id <= 0) {
+        gtk_label_set_text(GTK_LABEL(avw->status_banner), "Please select a valid class before saving attendance.");
+        gtk_widget_remove_css_class(avw->status_banner, "card-kpi-green");
+        gtk_widget_add_css_class(avw->status_banner, "card-kpi-red");
+        gtk_widget_set_visible(avw->status_banner, TRUE);
+        return;
+    }
+
+    if (avw->roster_count == 0) {
+        gtk_label_set_text(GTK_LABEL(avw->status_banner), "No students found in the selected class/section to record attendance.");
+        gtk_widget_remove_css_class(avw->status_banner, "card-kpi-green");
+        gtk_widget_add_css_class(avw->status_banner, "card-kpi-red");
+        gtk_widget_set_visible(avw->status_banner, TRUE);
+        return;
+    }
 
     AttendanceEntry entries[ATTENDANCE_MAX_RECORDS];
     const char *status_opts[] = { ATTENDANCE_STATUS_PRESENT, ATTENDANCE_STATUS_ABSENT,
@@ -207,7 +230,7 @@ static void on_save_attendance_clicked(GtkButton *btn, gpointer user_data)
 
     int user_id = 1;
     const UserSession *sess = auth_get_session();
-    if (sess) user_id = sess->user_id;
+    if (sess && sess->user_id > 0) user_id = sess->user_id;
 
     for (int i = 0; i < avw->roster_count; i++) {
         entries[i].student_id = avw->roster[i].student_id;
@@ -221,21 +244,42 @@ static void on_save_attendance_clicked(GtkButton *btn, gpointer user_data)
         else entries[i].remarks[0] = '\0';
     }
 
-    attendance_service_mark_bulk(avw->selected_class_id, avw->selected_section_id,
-                                 avw->selected_date, entries, avw->roster_count, user_id);
+    int rc = attendance_service_mark_bulk(avw->selected_class_id, avw->selected_section_id,
+                                          avw->selected_date, entries, avw->roster_count, user_id);
+
+    if (rc == 0) {
+        char msg[256];
+        snprintf(msg, sizeof(msg), "Attendance for %d students saved successfully on %s.",
+                 avw->roster_count, avw->selected_date);
+        gtk_label_set_text(GTK_LABEL(avw->status_banner), msg);
+        gtk_widget_remove_css_class(avw->status_banner, "card-kpi-red");
+        gtk_widget_add_css_class(avw->status_banner, "card-kpi-green");
+        gtk_widget_set_visible(avw->status_banner, TRUE);
+    } else {
+        gtk_label_set_text(GTK_LABEL(avw->status_banner), "Failed to save attendance records to database.");
+        gtk_widget_remove_css_class(avw->status_banner, "card-kpi-green");
+        gtk_widget_add_css_class(avw->status_banner, "card-kpi-red");
+        gtk_widget_set_visible(avw->status_banner, TRUE);
+    }
 
     refresh_view(avw);
 }
 
-/* ── Section Dropdown Synchronizer ────────────────────────────────── */
+/* ── Section & Class Dropdown Synchronizers ────────────────────────── */
 
 static void update_sections_dropdown(AttendanceViewWidgets *avw)
 {
+    if (!avw || !avw->box_section) return;
+
+    if (avw->combo_section && gtk_widget_get_parent(avw->combo_section)) {
+        gtk_box_remove(GTK_BOX(avw->box_section), avw->combo_section);
+    }
+
     if (avw->selected_class_id <= 0) {
         const char *none[] = { "All Sections", NULL };
-        GtkWidget *new_dd = gtk_drop_down_new_from_strings(none);
-        gtk_box_remove(GTK_BOX(gtk_widget_get_parent(avw->combo_section)), avw->combo_section);
-        avw->combo_section = new_dd;
+        avw->combo_section = gtk_drop_down_new_from_strings(none);
+        gtk_box_append(GTK_BOX(avw->box_section), avw->combo_section);
+        avw->selected_section_id = 0;
         return;
     }
 
@@ -249,14 +293,53 @@ static void update_sections_dropdown(AttendanceViewWidgets *avw)
     }
     sec_names[avw->section_count + 1] = NULL;
 
-    GtkWidget *parent = gtk_widget_get_parent(avw->combo_section);
-    GtkWidget *new_dd = gtk_drop_down_new_from_strings(sec_names);
-    g_signal_connect(new_dd, "notify::selected", G_CALLBACK(on_section_changed), avw);
-
-    gtk_box_remove(GTK_BOX(parent), avw->combo_section);
-    gtk_box_append(GTK_BOX(parent), new_dd);
-    avw->combo_section = new_dd;
+    avw->combo_section = gtk_drop_down_new_from_strings(sec_names);
+    g_signal_connect(avw->combo_section, "notify::selected", G_CALLBACK(on_section_changed), avw);
+    gtk_box_append(GTK_BOX(avw->box_section), avw->combo_section);
     avw->selected_section_id = 0;
+}
+
+static void update_classes_dropdown(AttendanceViewWidgets *avw)
+{
+    if (!avw || !avw->box_class) return;
+
+    avw->class_count = 0;
+    class_service_get_all(avw->classes, MAX_CLASSES, &avw->class_count);
+
+    if (avw->combo_class && gtk_widget_get_parent(avw->combo_class)) {
+        gtk_box_remove(GTK_BOX(avw->box_class), avw->combo_class);
+    }
+
+    if (avw->class_count == 0) {
+        const char *none[] = { "No Classes Found", NULL };
+        avw->combo_class = gtk_drop_down_new_from_strings(none);
+        avw->selected_class_id = 0;
+    } else {
+        const char *class_names[MAX_CLASSES + 1];
+        int sel_idx = 0;
+        bool found = false;
+
+        for (int i = 0; i < avw->class_count; i++) {
+            class_names[i] = avw->classes[i].name;
+            if (avw->selected_class_id > 0 && avw->classes[i].id == avw->selected_class_id) {
+                sel_idx = i;
+                found = true;
+            }
+        }
+        class_names[avw->class_count] = NULL;
+
+        if (!found) {
+            sel_idx = 0;
+            avw->selected_class_id = avw->classes[0].id;
+        }
+
+        avw->combo_class = gtk_drop_down_new_from_strings(class_names);
+        gtk_drop_down_set_selected(GTK_DROP_DOWN(avw->combo_class), (guint)sel_idx);
+        g_signal_connect(avw->combo_class, "notify::selected", G_CALLBACK(on_class_changed), avw);
+    }
+
+    gtk_box_append(GTK_BOX(avw->box_class), avw->combo_class);
+    update_sections_dropdown(avw);
 }
 
 /* ── View Renderers ───────────────────────────────────────────────── */
@@ -658,6 +741,12 @@ GtkWidget *school_attendance_view_new(void)
 
     gtk_box_append(GTK_BOX(box), top_row);
 
+    /* ── Status Banner ───────────────────────────────────────────── */
+    avw->status_banner = gtk_label_new("");
+    gtk_widget_add_css_class(avw->status_banner, "card");
+    gtk_widget_set_visible(avw->status_banner, FALSE);
+    gtk_box_append(GTK_BOX(box), avw->status_banner);
+
     /* ── Tab Switcher ─────────────────────────────────────────────── */
     GtkWidget *tab_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
 
@@ -685,43 +774,20 @@ GtkWidget *school_attendance_view_new(void)
     gtk_widget_set_valign(filter_card, GTK_ALIGN_CENTER);
 
     /* Class Selector */
-    GtkWidget *box_cls = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+    avw->box_class = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
     GtkWidget *lbl_c = gtk_label_new("Class:");
     gtk_label_set_xalign(GTK_LABEL(lbl_c), 0.0f);
-    gtk_box_append(GTK_BOX(box_cls), lbl_c);
-
-    avw->class_count = 0;
-    class_service_get_all(avw->classes, MAX_CLASSES, &avw->class_count);
-
-    const char *class_names[MAX_CLASSES + 1];
-    for (int i = 0; i < avw->class_count; i++) {
-        class_names[i] = avw->classes[i].name;
-    }
-    class_names[avw->class_count] = NULL;
-
-    avw->combo_class = gtk_drop_down_new_from_strings(class_names);
-    if (avw->class_count > 0) {
-        avw->selected_class_id = avw->classes[0].id;
-        gtk_drop_down_set_selected(GTK_DROP_DOWN(avw->combo_class), 0);
-    }
-    g_signal_connect(avw->combo_class, "notify::selected", G_CALLBACK(on_class_changed), avw);
-    gtk_box_append(GTK_BOX(box_cls), avw->combo_class);
-    gtk_box_append(GTK_BOX(filter_card), box_cls);
+    gtk_box_append(GTK_BOX(avw->box_class), lbl_c);
+    gtk_box_append(GTK_BOX(filter_card), avw->box_class);
 
     /* Section Selector */
-    GtkWidget *box_sec = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+    avw->box_section = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
     GtkWidget *lbl_s = gtk_label_new("Section:");
     gtk_label_set_xalign(GTK_LABEL(lbl_s), 0.0f);
-    gtk_box_append(GTK_BOX(box_sec), lbl_s);
+    gtk_box_append(GTK_BOX(avw->box_section), lbl_s);
+    gtk_box_append(GTK_BOX(filter_card), avw->box_section);
 
-    const char *init_sec[] = { "All Sections", NULL };
-    avw->combo_section = gtk_drop_down_new_from_strings(init_sec);
-    gtk_box_append(GTK_BOX(box_sec), avw->combo_section);
-    gtk_box_append(GTK_BOX(filter_card), box_sec);
-
-    if (avw->selected_class_id > 0) {
-        update_sections_dropdown(avw);
-    }
+    update_classes_dropdown(avw);
 
     /* Date Selector */
     GtkWidget *box_dt = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
@@ -785,8 +851,7 @@ void school_attendance_view_reload(GtkWidget *view)
     if (!view) return;
     AttendanceViewWidgets *avw = (AttendanceViewWidgets *)g_object_get_data(G_OBJECT(view), "avw");
     if (avw) {
-        avw->class_count = 0;
-        class_service_get_all(avw->classes, MAX_CLASSES, &avw->class_count);
+        update_classes_dropdown(avw);
         refresh_view(avw);
     }
 }
