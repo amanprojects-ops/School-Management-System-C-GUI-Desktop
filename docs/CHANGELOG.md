@@ -6,7 +6,10 @@ This document tracks all version releases, milestone tags, and feature additions
 
 ## Version Milestones
 
-### v1.1.3 (Current Release)
+### v1.1.4 (Current Release)
+- APCOACHING v1.1.4 release
+
+### v1.1.3 
 - **Windows Setup Installer Wizard:** Built-in Modern UI 2 NSIS setup wizard (`make_installer.bat` and `scripts/build_installer.py`) producing a single 19.5 MB standalone `Setup.exe`.
 - **Dynamic Display Monitor Auto-Adjust:** Integrated GDK4 monitor geometry detection; auto-calculates optimal baseline window dimensions (88% width, 82% height) with safety margins for the Windows taskbar and titlebar.
 - **Half-Screen Snap & Custom Resizing:** Reduced `WINDOW_MIN_WIDTH` to 640px and `WINDOW_MIN_HEIGHT` to 450px; enabled non-homogeneous stacks (`root_stack` & `content_stack`), ellipsizing labels, and scrollable containers across all views.
@@ -77,3 +80,4 @@ This repository maintains 34 annotated Git tags tracking each milestone from ini
 | `v1.1.1` | `3ad678b` | Application education icon branding, settings form placeholder text, OS taskbar icon |
 | `v1.1.2` | `e81c5ad` | Settings view scrolled window expansion & bidirectional auto-sizing, navigation reload fix |
 | `v1.1.3` | `6d79ce0` | Windows PE icon resource embedding, dynamic monitor auto-adjust, and Setup installer wizard |
+| `v1.1.4` | `b709ecf` | APCOACHING v1.1.4 release |
