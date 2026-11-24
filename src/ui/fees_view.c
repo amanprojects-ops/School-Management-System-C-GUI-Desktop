@@ -30,6 +30,7 @@ typedef struct {
     GtkWidget *tab_dues_btn;
     GtkWidget *content_container;
     GtkWidget *primary_action_btn;
+    GtkWidget *status_banner;
 
     FeesTab current_tab;
 
@@ -67,6 +68,20 @@ static void refresh_view(FeesViewWidgets *fvw);
 static void show_receipt_dialog(const FeePayment *p);
 static void show_add_edit_structure_dialog(FeesViewWidgets *fvw, int structure_id);
 
+static void show_status_message(FeesViewWidgets *fvw, const char *msg, bool is_success)
+{
+    if (!fvw || !fvw->status_banner) return;
+    gtk_label_set_text(GTK_LABEL(fvw->status_banner), msg);
+    if (is_success) {
+        gtk_widget_remove_css_class(fvw->status_banner, "card-kpi-red");
+        gtk_widget_add_css_class(fvw->status_banner, "card-kpi-green");
+    } else {
+        gtk_widget_remove_css_class(fvw->status_banner, "card-kpi-green");
+        gtk_widget_add_css_class(fvw->status_banner, "card-kpi-red");
+    }
+    gtk_widget_set_visible(fvw->status_banner, TRUE);
+}
+
 /* ── Tab Switch Handlers ─────────────────────────────────────────── */
 
 static void on_tab_collect_clicked(GtkButton *btn, gpointer user_data)
@@ -74,6 +89,7 @@ static void on_tab_collect_clicked(GtkButton *btn, gpointer user_data)
     (void)btn;
     FeesViewWidgets *fvw = (FeesViewWidgets *)user_data;
     fvw->current_tab = TAB_COLLECT;
+    if (fvw->status_banner) gtk_widget_set_visible(fvw->status_banner, FALSE);
     gtk_widget_add_css_class(fvw->tab_collect_btn, "tab-btn-active");
     gtk_widget_remove_css_class(fvw->tab_transactions_btn, "tab-btn-active");
     gtk_widget_remove_css_class(fvw->tab_structures_btn, "tab-btn-active");
@@ -87,6 +103,7 @@ static void on_tab_transactions_clicked(GtkButton *btn, gpointer user_data)
     (void)btn;
     FeesViewWidgets *fvw = (FeesViewWidgets *)user_data;
     fvw->current_tab = TAB_TRANSACTIONS;
+    if (fvw->status_banner) gtk_widget_set_visible(fvw->status_banner, FALSE);
     gtk_widget_remove_css_class(fvw->tab_collect_btn, "tab-btn-active");
     gtk_widget_add_css_class(fvw->tab_transactions_btn, "tab-btn-active");
     gtk_widget_remove_css_class(fvw->tab_structures_btn, "tab-btn-active");
@@ -100,6 +117,7 @@ static void on_tab_structures_clicked(GtkButton *btn, gpointer user_data)
     (void)btn;
     FeesViewWidgets *fvw = (FeesViewWidgets *)user_data;
     fvw->current_tab = TAB_STRUCTURES;
+    if (fvw->status_banner) gtk_widget_set_visible(fvw->status_banner, FALSE);
     gtk_widget_remove_css_class(fvw->tab_collect_btn, "tab-btn-active");
     gtk_widget_remove_css_class(fvw->tab_transactions_btn, "tab-btn-active");
     gtk_widget_add_css_class(fvw->tab_structures_btn, "tab-btn-active");
@@ -114,6 +132,7 @@ static void on_tab_dues_clicked(GtkButton *btn, gpointer user_data)
     (void)btn;
     FeesViewWidgets *fvw = (FeesViewWidgets *)user_data;
     fvw->current_tab = TAB_PENDING_DUES;
+    if (fvw->status_banner) gtk_widget_set_visible(fvw->status_banner, FALSE);
     gtk_widget_remove_css_class(fvw->tab_collect_btn, "tab-btn-active");
     gtk_widget_remove_css_class(fvw->tab_transactions_btn, "tab-btn-active");
     gtk_widget_remove_css_class(fvw->tab_structures_btn, "tab-btn-active");
@@ -222,6 +241,7 @@ static void on_submit_payment_clicked(GtkButton *btn, gpointer user_data)
         if (fee_payment_get_by_id(new_id, &full_p)) {
             show_receipt_dialog(&full_p);
         }
+        show_status_message(fvw, "Fee payment collected successfully. Official receipt generated.", true);
         update_collect_student_dues(fvw);
         /* Reset form fields */
         gtk_editable_set_text(GTK_EDITABLE(fvw->entry_amount), "0.00");
@@ -229,6 +249,8 @@ static void on_submit_payment_clicked(GtkButton *btn, gpointer user_data)
         gtk_editable_set_text(GTK_EDITABLE(fvw->entry_late_fine), "0.00");
         gtk_editable_set_text(GTK_EDITABLE(fvw->entry_tx_ref), "");
         gtk_editable_set_text(GTK_EDITABLE(fvw->entry_remarks), "");
+    } else {
+        show_status_message(fvw, "Failed to record fee payment.", false);
     }
 }
 
@@ -564,12 +586,75 @@ static void on_edit_structure_clicked(GtkButton *btn, gpointer user_data)
     show_add_edit_structure_dialog(fvw, id);
 }
 
+typedef struct {
+    FeesViewWidgets *fvw;
+    int id;
+    GtkWidget *dialog;
+} DeleteFeeStructData;
+
+static void on_confirm_delete_structure(GtkButton *btn, gpointer user_data)
+{
+    (void)btn;
+    DeleteFeeStructData *d = (DeleteFeeStructData *)user_data;
+    if (fee_structure_delete(d->id)) {
+        show_status_message(d->fvw, "Fee structure deleted successfully.", true);
+    } else {
+        show_status_message(d->fvw, "Failed to delete fee structure.", false);
+    }
+    refresh_view(d->fvw);
+    gtk_window_destroy(GTK_WINDOW(d->dialog));
+    g_free(d);
+}
+
+static void show_delete_structure_dialog(FeesViewWidgets *fvw, int id, const char *name)
+{
+    DeleteFeeStructData *d = g_new0(DeleteFeeStructData, 1);
+    d->fvw = fvw;
+    d->id = id;
+
+    GtkWidget *win = gtk_window_new();
+    d->dialog = win;
+    gtk_window_set_title(GTK_WINDOW(win), "Confirm Fee Structure Deletion");
+    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
+    gtk_window_set_default_size(GTK_WINDOW(win), 420, 200);
+
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
+    gtk_widget_set_margin_start(box, 24);
+    gtk_widget_set_margin_end(box, 24);
+    gtk_widget_set_margin_top(box, 24);
+    gtk_widget_set_margin_bottom(box, 24);
+    gtk_window_set_child(GTK_WINDOW(win), box);
+
+    char msg[256];
+    snprintf(msg, sizeof(msg), "Are you sure you want to delete fee structure '%s'?\nExisting payment records will remain in audit history.",
+             name ? name : "this structure");
+    GtkWidget *lbl = gtk_label_new(msg);
+    gtk_label_set_wrap(GTK_LABEL(lbl), TRUE);
+    gtk_box_append(GTK_BOX(box), lbl);
+
+    GtkWidget *btn_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+    gtk_widget_set_halign(btn_box, GTK_ALIGN_END);
+
+    GtkWidget *cancel = gtk_button_new_with_label("Cancel");
+    gtk_widget_add_css_class(cancel, "btn-secondary");
+    g_signal_connect_swapped(cancel, "clicked", G_CALLBACK(gtk_window_destroy), win);
+    gtk_box_append(GTK_BOX(btn_box), cancel);
+
+    GtkWidget *del = gtk_button_new_with_label("Delete Structure");
+    gtk_widget_add_css_class(del, "btn-danger");
+    g_signal_connect(del, "clicked", G_CALLBACK(on_confirm_delete_structure), d);
+    gtk_box_append(GTK_BOX(btn_box), del);
+
+    gtk_box_append(GTK_BOX(box), btn_box);
+    gtk_window_present(GTK_WINDOW(win));
+}
+
 static void on_delete_structure_clicked(GtkButton *btn, gpointer user_data)
 {
     FeesViewWidgets *fvw = (FeesViewWidgets *)g_object_get_data(G_OBJECT(btn), "fvw");
     int id = GPOINTER_TO_INT(user_data);
-    fee_structure_delete(id);
-    refresh_view(fvw);
+    const char *name = (const char *)g_object_get_data(G_OBJECT(btn), "struct_name");
+    show_delete_structure_dialog(fvw, id, name ? name : "Fee Structure");
 }
 
 static void render_structures_tab(FeesViewWidgets *fvw)
@@ -659,6 +744,7 @@ static void render_structures_tab(FeesViewWidgets *fvw)
         GtkWidget *del_btn = gtk_button_new_with_label("Delete");
         gtk_widget_add_css_class(del_btn, "btn-danger");
         g_object_set_data(G_OBJECT(del_btn), "fvw", fvw);
+        g_object_set_data_full(G_OBJECT(del_btn), "struct_name", g_strdup(st->name), g_free);
         g_signal_connect(del_btn, "clicked", G_CALLBACK(on_delete_structure_clicked), GINT_TO_POINTER(st->id));
         gtk_box_append(GTK_BOX(act_box), del_btn);
 
@@ -879,10 +965,18 @@ static void on_save_structure_dialog(GtkButton *btn, gpointer user_data)
     if (sel_tp <= 4) strncpy(st.fee_type, types[sel_tp], sizeof(st.fee_type) - 1);
 
     if (d->structure_id > 0) {
-        fee_structure_update(&st);
+        if (fee_structure_update(&st)) {
+            show_status_message(d->fvw, "Fee structure updated successfully.", true);
+        } else {
+            show_status_message(d->fvw, "Failed to update fee structure.", false);
+        }
     } else {
         int new_id = 0;
-        fee_structure_create(&st, &new_id);
+        if (fee_structure_create(&st, &new_id)) {
+            show_status_message(d->fvw, "Fee structure created successfully.", true);
+        } else {
+            show_status_message(d->fvw, "Failed to create fee structure.", false);
+        }
     }
 
     refresh_view(d->fvw);
@@ -1185,6 +1279,12 @@ GtkWidget *school_fees_view_new(void)
     gtk_box_append(GTK_BOX(top_row), fvw->primary_action_btn);
 
     gtk_box_append(GTK_BOX(box), top_row);
+
+    /* ── Status Banner ───────────────────────────────────────────── */
+    fvw->status_banner = gtk_label_new("");
+    gtk_widget_add_css_class(fvw->status_banner, "card");
+    gtk_widget_set_visible(fvw->status_banner, FALSE);
+    gtk_box_append(GTK_BOX(box), fvw->status_banner);
 
     /* ── Tab Switcher ─────────────────────────────────────────────── */
     GtkWidget *tab_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
