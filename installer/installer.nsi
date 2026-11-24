@@ -8,7 +8,7 @@
 !endif
 
 !ifndef APP_VERSION
-  !define APP_VERSION "1.1.3"
+  !define APP_VERSION "1.1.4"
 !endif
 
 !ifndef APP_PUBLISHER
