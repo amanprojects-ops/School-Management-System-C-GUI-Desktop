@@ -36,6 +36,7 @@ typedef struct {
     GtkWidget *tab_ranks_btn;
     GtkWidget *content_container;
     GtkWidget *primary_action_btn;
+    GtkWidget *status_banner;
 
     ExamsTab current_tab;
 
@@ -76,6 +77,20 @@ static void show_add_exam_dialog(ExamsViewWidgets *evw);
 static void show_schedule_subject_dialog(ExamsViewWidgets *evw, int exam_id);
 static void show_marksheet_dialog(const StudentReportCard *card);
 
+static void show_status_message(ExamsViewWidgets *evw, const char *msg, bool is_success)
+{
+    if (!evw || !evw->status_banner) return;
+    gtk_label_set_text(GTK_LABEL(evw->status_banner), msg);
+    if (is_success) {
+        gtk_widget_remove_css_class(evw->status_banner, "card-kpi-red");
+        gtk_widget_add_css_class(evw->status_banner, "card-kpi-green");
+    } else {
+        gtk_widget_remove_css_class(evw->status_banner, "card-kpi-green");
+        gtk_widget_add_css_class(evw->status_banner, "card-kpi-red");
+    }
+    gtk_widget_set_visible(evw->status_banner, TRUE);
+}
+
 /* ── Tab Switch Handlers ─────────────────────────────────────────── */
 
 static void on_tab_exams_clicked(GtkButton *btn, gpointer user_data)
@@ -83,6 +98,7 @@ static void on_tab_exams_clicked(GtkButton *btn, gpointer user_data)
     (void)btn;
     ExamsViewWidgets *evw = (ExamsViewWidgets *)user_data;
     evw->current_tab = TAB_EXAMS;
+    if (evw->status_banner) gtk_widget_set_visible(evw->status_banner, FALSE);
     gtk_widget_add_css_class(evw->tab_exams_btn, "tab-btn-active");
     gtk_widget_remove_css_class(evw->tab_marks_btn, "tab-btn-active");
     gtk_widget_remove_css_class(evw->tab_reports_btn, "tab-btn-active");
@@ -97,6 +113,7 @@ static void on_tab_marks_clicked(GtkButton *btn, gpointer user_data)
     (void)btn;
     ExamsViewWidgets *evw = (ExamsViewWidgets *)user_data;
     evw->current_tab = TAB_MARKS;
+    if (evw->status_banner) gtk_widget_set_visible(evw->status_banner, FALSE);
     gtk_widget_remove_css_class(evw->tab_exams_btn, "tab-btn-active");
     gtk_widget_add_css_class(evw->tab_marks_btn, "tab-btn-active");
     gtk_widget_remove_css_class(evw->tab_reports_btn, "tab-btn-active");
@@ -110,6 +127,7 @@ static void on_tab_reports_clicked(GtkButton *btn, gpointer user_data)
     (void)btn;
     ExamsViewWidgets *evw = (ExamsViewWidgets *)user_data;
     evw->current_tab = TAB_REPORTS;
+    if (evw->status_banner) gtk_widget_set_visible(evw->status_banner, FALSE);
     gtk_widget_remove_css_class(evw->tab_exams_btn, "tab-btn-active");
     gtk_widget_remove_css_class(evw->tab_marks_btn, "tab-btn-active");
     gtk_widget_add_css_class(evw->tab_reports_btn, "tab-btn-active");
@@ -123,6 +141,7 @@ static void on_tab_ranks_clicked(GtkButton *btn, gpointer user_data)
     (void)btn;
     ExamsViewWidgets *evw = (ExamsViewWidgets *)user_data;
     evw->current_tab = TAB_RANKS;
+    if (evw->status_banner) gtk_widget_set_visible(evw->status_banner, FALSE);
     gtk_widget_remove_css_class(evw->tab_exams_btn, "tab-btn-active");
     gtk_widget_remove_css_class(evw->tab_marks_btn, "tab-btn-active");
     gtk_widget_remove_css_class(evw->tab_reports_btn, "tab-btn-active");
@@ -149,12 +168,75 @@ static void on_schedule_subject_clicked(GtkButton *btn, gpointer user_data)
     show_schedule_subject_dialog(evw, exam_id);
 }
 
+typedef struct {
+    ExamsViewWidgets *evw;
+    int exam_id;
+    GtkWidget *dialog;
+} DeleteExamData;
+
+static void on_confirm_delete_exam(GtkButton *btn, gpointer user_data)
+{
+    (void)btn;
+    DeleteExamData *d = (DeleteExamData *)user_data;
+    if (exam_service_delete(d->exam_id)) {
+        show_status_message(d->evw, "Examination deleted successfully.", true);
+    } else {
+        show_status_message(d->evw, "Failed to delete examination.", false);
+    }
+    refresh_view(d->evw);
+    gtk_window_destroy(GTK_WINDOW(d->dialog));
+    g_free(d);
+}
+
+static void show_delete_exam_dialog(ExamsViewWidgets *evw, int exam_id, const char *exam_name)
+{
+    DeleteExamData *d = g_new0(DeleteExamData, 1);
+    d->evw = evw;
+    d->exam_id = exam_id;
+
+    GtkWidget *win = gtk_window_new();
+    d->dialog = win;
+    gtk_window_set_title(GTK_WINDOW(win), "Confirm Exam Deletion");
+    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
+    gtk_window_set_default_size(GTK_WINDOW(win), 420, 200);
+
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
+    gtk_widget_set_margin_start(box, 24);
+    gtk_widget_set_margin_end(box, 24);
+    gtk_widget_set_margin_top(box, 24);
+    gtk_widget_set_margin_bottom(box, 24);
+    gtk_window_set_child(GTK_WINDOW(win), box);
+
+    char msg[256];
+    snprintf(msg, sizeof(msg), "Are you sure you want to delete examination '%s'?\nAll scheduled subjects, marks, and rankings will be permanently removed.",
+             exam_name ? exam_name : "this exam");
+    GtkWidget *lbl = gtk_label_new(msg);
+    gtk_label_set_wrap(GTK_LABEL(lbl), TRUE);
+    gtk_box_append(GTK_BOX(box), lbl);
+
+    GtkWidget *btn_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+    gtk_widget_set_halign(btn_box, GTK_ALIGN_END);
+
+    GtkWidget *cancel = gtk_button_new_with_label("Cancel");
+    gtk_widget_add_css_class(cancel, "btn-secondary");
+    g_signal_connect_swapped(cancel, "clicked", G_CALLBACK(gtk_window_destroy), win);
+    gtk_box_append(GTK_BOX(btn_box), cancel);
+
+    GtkWidget *del = gtk_button_new_with_label("Delete Exam");
+    gtk_widget_add_css_class(del, "btn-danger");
+    g_signal_connect(del, "clicked", G_CALLBACK(on_confirm_delete_exam), d);
+    gtk_box_append(GTK_BOX(btn_box), del);
+
+    gtk_box_append(GTK_BOX(box), btn_box);
+    gtk_window_present(GTK_WINDOW(win));
+}
+
 static void on_delete_exam_clicked(GtkButton *btn, gpointer user_data)
 {
     ExamsViewWidgets *evw = (ExamsViewWidgets *)g_object_get_data(G_OBJECT(btn), "evw");
     int exam_id = GPOINTER_TO_INT(user_data);
-    exam_service_delete(exam_id);
-    refresh_view(evw);
+    const char *name = (const char *)g_object_get_data(G_OBJECT(btn), "exam_name");
+    show_delete_exam_dialog(evw, exam_id, name ? name : "Examination");
 }
 
 static void render_exams_tab(ExamsViewWidgets *evw)
@@ -218,6 +300,7 @@ static void render_exams_tab(ExamsViewWidgets *evw)
         GtkWidget *del_btn = gtk_button_new_with_label("Delete");
         gtk_widget_add_css_class(del_btn, "btn-danger");
         g_object_set_data(G_OBJECT(del_btn), "evw", evw);
+        g_object_set_data_full(G_OBJECT(del_btn), "exam_name", g_strdup(ex->name), g_free);
         g_signal_connect(del_btn, "clicked", G_CALLBACK(on_delete_exam_clicked), GINT_TO_POINTER(ex->id));
         gtk_box_append(GTK_BOX(header_row), del_btn);
 
@@ -364,6 +447,7 @@ static void on_save_marks_clicked(GtkButton *btn, gpointer user_data)
         exam_result_record(&res, &new_id);
     }
 
+    show_status_message(evw, "Marks recorded successfully for the subject.", true);
     render_marks_roster(evw);
 }
 
@@ -894,7 +978,11 @@ static void on_save_exam_dialog(GtkButton *btn, gpointer user_data)
     if (sel_s <= 2) strncpy(ex.status, st_opts[sel_s], sizeof(ex.status) - 1);
 
     int new_id = 0;
-    exam_service_create(&ex, &new_id);
+    if (exam_service_create(&ex, &new_id)) {
+        show_status_message(d->evw, "Examination created successfully.", true);
+    } else {
+        show_status_message(d->evw, "Failed to create examination.", false);
+    }
 
     refresh_view(d->evw);
     gtk_window_destroy(GTK_WINDOW(d->dialog));
@@ -1019,7 +1107,11 @@ static void on_save_sched_dialog(GtkButton *btn, gpointer user_data)
     es.passing_marks = pass_str ? atof(pass_str) : 35.0;
 
     int new_id = 0;
-    exam_subject_create(&es, &new_id);
+    if (exam_subject_create(&es, &new_id)) {
+        show_status_message(d->evw, "Subject scheduled to examination successfully.", true);
+    } else {
+        show_status_message(d->evw, "Failed to schedule subject.", false);
+    }
 
     refresh_view(d->evw);
     gtk_window_destroy(GTK_WINDOW(d->dialog));
@@ -1335,6 +1427,12 @@ GtkWidget *school_exams_view_new(void)
     gtk_box_append(GTK_BOX(top_row), evw->primary_action_btn);
 
     gtk_box_append(GTK_BOX(box), top_row);
+
+    /* ── Status Banner ───────────────────────────────────────────── */
+    evw->status_banner = gtk_label_new("");
+    gtk_widget_add_css_class(evw->status_banner, "card");
+    gtk_widget_set_visible(evw->status_banner, FALSE);
+    gtk_box_append(GTK_BOX(box), evw->status_banner);
 
     /* Tabs */
     GtkWidget *tab_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
