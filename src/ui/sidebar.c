@@ -55,7 +55,7 @@ GtkWidget *school_sidebar_new(void)
     GtkWidget *brand_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     gtk_widget_add_css_class(brand_box, "sidebar-brand");
 
-    GtkWidget *logo_icon = gtk_image_new_from_icon_name("applications-education-symbolic");
+    GtkWidget *logo_icon = gtk_image_new_from_file("assets/images/app_logo.png");
     gtk_image_set_pixel_size(GTK_IMAGE(logo_icon), 32);
     gtk_widget_add_css_class(logo_icon, "sidebar-logo");
     gtk_box_append(GTK_BOX(brand_box), logo_icon);
