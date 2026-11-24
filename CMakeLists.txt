@@ -69,6 +69,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     PkgConfig::SQLITE3
     PkgConfig::CRYPTO
 )
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32)
+endif()
 
 # Copy assets to build directory
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
@@ -235,6 +238,9 @@ target_include_directories(test_settings PRIVATE
 target_link_libraries(test_settings PRIVATE
     PkgConfig::SQLITE3
 )
+if(WIN32)
+    target_link_libraries(test_settings PRIVATE ws2_32)
+endif()
 
 # End-to-End System Integration test executable
 add_executable(test_system_integration
@@ -256,6 +262,9 @@ target_include_directories(test_system_integration PRIVATE
 target_link_libraries(test_system_integration PRIVATE
     PkgConfig::SQLITE3
 )
+if(WIN32)
+    target_link_libraries(test_system_integration PRIVATE ws2_32)
+endif()
 
 # Install rules
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin)
