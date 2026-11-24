@@ -287,6 +287,17 @@ static const char *SCHEMA_V1 =
     "    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP\n"
     ");\n"
 
+    "-- 20. Role Permissions table\n"
+    "CREATE TABLE IF NOT EXISTS role_permissions (\n"
+    "    id INTEGER PRIMARY KEY AUTOINCREMENT,\n"
+    "    role_id INTEGER NOT NULL,\n"
+    "    module_name TEXT NOT NULL,\n"
+    "    can_view INTEGER NOT NULL DEFAULT 1,\n"
+    "    can_edit INTEGER NOT NULL DEFAULT 0,\n"
+    "    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,\n"
+    "    UNIQUE(role_id, module_name)\n"
+    ");\n"
+
     "-- Indexes\n"
     "CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);\n"
     "CREATE INDEX IF NOT EXISTS idx_students_admission_no ON students(admission_no);\n"
@@ -298,7 +309,8 @@ static const char *SCHEMA_V1 =
     "CREATE INDEX IF NOT EXISTS idx_timetable_teacher_slot ON timetables(teacher_id, day_of_week, period_number);\n"
     "CREATE INDEX IF NOT EXISTS idx_timetable_class_slot ON timetables(class_id, section_id, day_of_week, period_number);\n"
     "CREATE INDEX IF NOT EXISTS idx_exam_results_student ON exam_results(exam_subject_id, student_id);\n"
-    "CREATE INDEX IF NOT EXISTS idx_activity_logs_created ON activity_logs(created_at);\n";
+    "CREATE INDEX IF NOT EXISTS idx_activity_logs_created ON activity_logs(created_at);\n"
+    "CREATE INDEX IF NOT EXISTS idx_role_permissions_role ON role_permissions(role_id);\n";
 
 /* ── Seed Data ────────────────────────────────────────────────────── */
 
@@ -327,7 +339,29 @@ static const char *SEED_DATA =
     "    ('school_website', 'https://stxavier.edu', 'Official website URL'),\n"
     "    ('principal_name', 'Dr. Alok Verma', 'Name of the current school principal'),\n"
     "    ('currency_symbol', '₹', 'Currency symbol used for accounting and receipts'),\n"
-    "    ('theme_mode', 'light', 'Default UI theme mode: light or dark');\n";
+    "    ('theme_mode', 'light', 'Default UI theme mode: light or dark'),\n"
+    "    ('smtp_host', 'smtp.gmail.com', 'Outgoing SMTP server hostname'),\n"
+    "    ('smtp_port', '587', 'SMTP server port (587 for TLS, 465 for SSL)'),\n"
+    "    ('smtp_username', 'school.admin@example.com', 'SMTP authentication username'),\n"
+    "    ('smtp_password', '', 'SMTP authentication password or app token'),\n"
+    "    ('smtp_encryption', 'STARTTLS', 'SMTP encryption protocol: STARTTLS, SSL, or NONE'),\n"
+    "    ('smtp_sender_name', 'School Administration', 'Outgoing email sender display name'),\n"
+    "    ('smtp_sender_email', 'noreply@schoolcms.edu', 'Outgoing email from address');\n"
+
+    "-- Initial role permissions\n"
+    "INSERT OR IGNORE INTO role_permissions (role_id, module_name, can_view, can_edit) VALUES\n"
+    "    (1, 'STUDENTS', 1, 1), (1, 'TEACHERS', 1, 1), (1, 'CLASSES', 1, 1),\n"
+    "    (1, 'ATTENDANCE', 1, 1), (1, 'FEES', 1, 1), (1, 'EXAMS', 1, 1),\n"
+    "    (1, 'TIMETABLE', 1, 1), (1, 'REPORTS', 1, 1), (1, 'SETTINGS', 1, 1),\n"
+    "    (2, 'STUDENTS', 1, 0), (2, 'TEACHERS', 1, 0), (2, 'CLASSES', 1, 0),\n"
+    "    (2, 'ATTENDANCE', 1, 1), (2, 'FEES', 0, 0), (2, 'EXAMS', 1, 1),\n"
+    "    (2, 'TIMETABLE', 1, 0), (2, 'REPORTS', 1, 0), (2, 'SETTINGS', 0, 0),\n"
+    "    (3, 'STUDENTS', 1, 0), (3, 'TEACHERS', 0, 0), (3, 'CLASSES', 1, 0),\n"
+    "    (3, 'ATTENDANCE', 1, 0), (3, 'FEES', 1, 1), (3, 'EXAMS', 0, 0),\n"
+    "    (3, 'TIMETABLE', 0, 0), (3, 'REPORTS', 1, 1), (3, 'SETTINGS', 0, 0),\n"
+    "    (4, 'STUDENTS', 1, 0), (4, 'TEACHERS', 1, 0), (4, 'CLASSES', 1, 0),\n"
+    "    (4, 'ATTENDANCE', 1, 0), (4, 'FEES', 0, 0), (4, 'EXAMS', 0, 0),\n"
+    "    (4, 'TIMETABLE', 1, 0), (4, 'REPORTS', 0, 0), (4, 'SETTINGS', 0, 0);\n";
 
 /* ── Implementation ──────────────────────────────────────────────── */
 
@@ -447,7 +481,60 @@ DbResult db_run_migrations(void)
             return DB_ERROR_MIGRATION;
         }
 
-        if (set_db_version(1) != DB_SUCCESS) {
+        if (set_db_version(2) != DB_SUCCESS) {
+            db_rollback();
+            return DB_ERROR_MIGRATION;
+        }
+
+        db_commit();
+    } else if (current_version < 2) {
+        /* Run Migration 2 for existing v1 databases */
+        DbResult tx_res = db_begin_transaction();
+        if (tx_res != DB_SUCCESS) return tx_res;
+
+        static const char *MIGRATION_V2 =
+            "CREATE TABLE IF NOT EXISTS role_permissions (\n"
+            "    id INTEGER PRIMARY KEY AUTOINCREMENT,\n"
+            "    role_id INTEGER NOT NULL,\n"
+            "    module_name TEXT NOT NULL,\n"
+            "    can_view INTEGER NOT NULL DEFAULT 1,\n"
+            "    can_edit INTEGER NOT NULL DEFAULT 0,\n"
+            "    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,\n"
+            "    UNIQUE(role_id, module_name)\n"
+            ");\n"
+            "CREATE INDEX IF NOT EXISTS idx_role_permissions_role ON role_permissions(role_id);\n"
+            "INSERT OR IGNORE INTO settings (key, value, description) VALUES\n"
+            "    ('smtp_host', 'smtp.gmail.com', 'Outgoing SMTP server hostname'),\n"
+            "    ('smtp_port', '587', 'SMTP server port (587 for TLS, 465 for SSL)'),\n"
+            "    ('smtp_username', 'school.admin@example.com', 'SMTP authentication username'),\n"
+            "    ('smtp_password', '', 'SMTP authentication password or app token'),\n"
+            "    ('smtp_encryption', 'STARTTLS', 'SMTP encryption protocol: STARTTLS, SSL, or NONE'),\n"
+            "    ('smtp_sender_name', 'School Administration', 'Outgoing email sender display name'),\n"
+            "    ('smtp_sender_email', 'noreply@schoolcms.edu', 'Outgoing email from address');\n"
+            "INSERT OR IGNORE INTO role_permissions (role_id, module_name, can_view, can_edit) VALUES\n"
+            "    (1, 'STUDENTS', 1, 1), (1, 'TEACHERS', 1, 1), (1, 'CLASSES', 1, 1),\n"
+            "    (1, 'ATTENDANCE', 1, 1), (1, 'FEES', 1, 1), (1, 'EXAMS', 1, 1),\n"
+            "    (1, 'TIMETABLE', 1, 1), (1, 'REPORTS', 1, 1), (1, 'SETTINGS', 1, 1),\n"
+            "    (2, 'STUDENTS', 1, 0), (2, 'TEACHERS', 1, 0), (2, 'CLASSES', 1, 0),\n"
+            "    (2, 'ATTENDANCE', 1, 1), (2, 'FEES', 0, 0), (2, 'EXAMS', 1, 1),\n"
+            "    (2, 'TIMETABLE', 1, 0), (2, 'REPORTS', 1, 0), (2, 'SETTINGS', 0, 0),\n"
+            "    (3, 'STUDENTS', 1, 0), (3, 'TEACHERS', 0, 0), (3, 'CLASSES', 1, 0),\n"
+            "    (3, 'ATTENDANCE', 1, 0), (3, 'FEES', 1, 1), (3, 'EXAMS', 0, 0),\n"
+            "    (3, 'TIMETABLE', 0, 0), (3, 'REPORTS', 1, 1), (3, 'SETTINGS', 0, 0),\n"
+            "    (4, 'STUDENTS', 1, 0), (4, 'TEACHERS', 1, 0), (4, 'CLASSES', 1, 0),\n"
+            "    (4, 'ATTENDANCE', 1, 0), (4, 'FEES', 0, 0), (4, 'EXAMS', 0, 0),\n"
+            "    (4, 'TIMETABLE', 1, 0), (4, 'REPORTS', 0, 0), (4, 'SETTINGS', 0, 0);\n";
+
+        char *errmsg = NULL;
+        int rc = sqlite3_exec(s_db, MIGRATION_V2, NULL, NULL, &errmsg);
+        if (rc != SQLITE_OK) {
+            fprintf(stderr, "[DB ERROR] Migration V2 failed: %s\n", errmsg ? errmsg : "unknown");
+            sqlite3_free(errmsg);
+            db_rollback();
+            return DB_ERROR_MIGRATION;
+        }
+
+        if (set_db_version(2) != DB_SUCCESS) {
             db_rollback();
             return DB_ERROR_MIGRATION;
         }
