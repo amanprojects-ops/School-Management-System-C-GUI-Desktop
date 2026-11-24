@@ -400,26 +400,25 @@ The packaging pipeline generates two release artifacts in `dist/`:
 
 ## Step-by-Step Windows NSIS Installer Creation
 
-To create a professional Windows setup installer (`SchoolCMS-v1.0.0-Setup.exe`) with desktop shortcuts, Start Menu integration, and a clean uninstaller:
+To create a professional, single-executable Windows setup installer wizard (`APCOACHING-v1.1.3-Setup.exe` or customized name) with a Modern UI 2 step-by-step wizard, desktop shortcuts, Start Menu integration, and a clean Windows uninstaller:
 
-### Step 1: Install NSIS
-Install NSIS using MSYS2 or download from [https://nsis.sourceforge.io/](https://nsis.sourceforge.io/):
+### Single-Click Generation (Recommended)
+
+Simply double-click the root batch script or run from terminal:
+```cmd
+make_installer.bat
+```
+Or run the Python builder:
 ```bash
-pacman -S --needed --noconfirm mingw-w64-ucrt-x86_64-nsis
+python scripts/build_installer.py
 ```
 
-### Step 2: Compile the Installer Script
-Run the NSIS compiler targeting [scripts/installer.nsi](file:///c:/apps/SchoolCMS/scripts/installer.nsi):
-```bash
-makensis scripts/installer.nsi
-```
-
-### Step 3: Installer Output
-- **Target File:** `dist/SchoolCMS-v1.0.0-Setup.exe`
-- **Features:**
-  - Installs to `C:\Program Files\SchoolCMS`
-  - Creates Desktop shortcut and Start Menu program group
-  - Registers clean uninstaller in Windows *Settings > Installed apps*
+### Features of the Generated Installer Wizard
+- **Self-Contained Executable:** Bundles the compiled app, all 65 DLLs, GTK4 themes, schemas, and assets into a single compressed `Setup.exe` (~19.5 MB via Solid LZMA).
+- **Modern UI 2 Wizard:** Includes Welcome page, Destination Folder selection, Extraction progress bar, and "Launch now" finish checkbox.
+- **Per-User Installation:** Installs by default to `%LOCALAPPDATA%\Programs\<AppName>` — no Administrator UAC prompt required, works smoothly on standard school/office PCs.
+- **Shortcuts:** Automatically creates a Desktop shortcut and a Start Menu program group with the application's embedded icon.
+- **Clean Windows Uninstaller:** Registers in Windows *Settings > Installed apps* / *Control Panel* with display version, publisher, icon, and estimated size. The uninstaller removes all files cleanly.
 
 ---
 
