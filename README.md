@@ -5,8 +5,8 @@
 [![Database](https://img.shields.io/badge/Database-SQLite3-003B57.svg?logo=sqlite)](https://www.sqlite.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6.svg?logo=windows)](https://microsoft.com/windows)
 [![Build](https://img.shields.io/badge/Build-CMake%20%7C%20Ninja-064F8C.svg?logo=cmake)](https://cmake.org/)
-[![Test Suite](https://img.shields.io/badge/Tests-13%2F13%20Passed%20(100%25)-2ea44f.svg)](file:///c:/apps/SchoolCMS/run_tests.sh)
-[![Release](https://img.shields.io/badge/Release-v1.1.3-brightgreen.svg)](file:///c:/apps/SchoolCMS/dist/)
+[![Test Suite](https://img.shields.io/badge/Tests-13%2F13%20Passed%20(100%25)-2ea44f.svg)](run_tests.sh)
+[![Release](https://img.shields.io/badge/Release-v1.1.3-brightgreen.svg)](dist/)
 
 A modern, high-performance, offline-first institutional **School Management System** desktop application developed in pure **C (C11)**, **GTK4**, and **SQLite3** for Windows 10 and 11. Designed following enterprise SaaS visual standards, featuring real-time analytics, automated student and faculty rostering, conflict-free timetable scheduling, comprehensive fee accounting, examination grading, RFC 4180 CSV reporting, and online SQLite disaster recovery.
 
@@ -18,20 +18,20 @@ To keep the project clean, comprehensive, and easy to navigate, detailed documen
 
 | Guide | Description |
 | :--- | :--- |
-| 📖 **[BUILDING.md](file:///c:/apps/SchoolCMS/docs/BUILDING.md)** | Prerequisites, MSYS2 UCRT64 toolchain setup, CMake & Ninja compilation guide |
-| 🧪 **[TESTING.md](file:///c:/apps/SchoolCMS/docs/TESTING.md)** | Automated test runner, 13 test targets overview (100% pass rate), and test debugging |
-| 📦 **[PACKAGING.md](file:///c:/apps/SchoolCMS/docs/PACKAGING.md)** | Portable zero-dependency release bundle (`.zip`) & Windows Setup Wizard (`.exe`) |
-| 🏗️ **[ARCHITECTURE.md](file:///c:/apps/SchoolCMS/docs/ARCHITECTURE.md)** | Full project directory tree, C11 layered architecture, and 19-table database schema with ER diagram |
-| 🎨 **[REBRANDING.md](file:///c:/apps/SchoolCMS/docs/REBRANDING.md)** | Single-click rebranding via `rebrand.bat`, changing app name, Windows icon, and custom PNG logo |
-| 🔧 **[TROUBLESHOOTING.md](file:///c:/apps/SchoolCMS/docs/TROUBLESHOOTING.md)** | Frequently asked questions, DLL errors, icon rendering fixes, and Excel CSV encoding |
-| 📜 **[CHANGELOG.md](file:///c:/apps/SchoolCMS/docs/CHANGELOG.md)** | Version release notes and complete history of all 34 milestone Git tags |
+| 📖 **[BUILDING.md](docs/BUILDING.md)** | Prerequisites, MSYS2 UCRT64 toolchain setup, CMake & Ninja compilation guide |
+| 🧪 **[TESTING.md](docs/TESTING.md)** | Automated test runner, 13 test targets overview (100% pass rate), and test debugging |
+| 📦 **[PACKAGING.md](docs/PACKAGING.md)** | Portable zero-dependency release bundle (`.zip`) & Windows Setup Wizard (`.exe`) |
+| 🏗️ **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** | Full project directory tree, C11 layered architecture, and 19-table database schema with ER diagram |
+| 🎨 **[REBRANDING.md](docs/REBRANDING.md)** | Single-click rebranding via `rebrand.bat`, changing app name, Windows icon, and custom PNG logo |
+| 🔧 **[TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** | Frequently asked questions, DLL errors, icon rendering fixes, and Excel CSV encoding |
+| 📜 **[CHANGELOG.md](docs/CHANGELOG.md)** | Version release notes and complete history of all 34 milestone Git tags |
 
 ---
 
 ## Quick Start Guide
 
 ### 1. Build the Application
-Ensure you have the [MSYS2 UCRT64 toolchain installed](file:///c:/apps/SchoolCMS/docs/BUILDING.md), then run:
+Ensure you have the [MSYS2 UCRT64 toolchain installed](docs/BUILDING.md), then run:
 ```bash
 cd C:/apps/SchoolCMS
 mkdir -p build && cd build
