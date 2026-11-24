@@ -164,6 +164,69 @@ static void test_audit_logs(void)
     printf("       Audit activity logs verified (%d events) -> PASS\n", count);
 }
 
+static void test_smtp_configuration(void)
+{
+    printf("[TEST] Testing Email SMTP Gateway configuration and validation...\n");
+
+    /* 1. Retrieve default seeded SMTP config */
+    SmtpConfig def_cfg;
+    assert(settings_service_get_smtp(&def_cfg));
+    assert(strcmp(def_cfg.smtp_host, "smtp.gmail.com") == 0);
+    assert(def_cfg.smtp_port == 587);
+    assert(strcmp(def_cfg.smtp_encryption, "STARTTLS") == 0);
+    printf("       Default seeded SMTP configuration verified -> PASS\n");
+
+    /* 2. Mutate and save custom SMTP gateway */
+    SmtpConfig custom;
+    memset(&custom, 0, sizeof(SmtpConfig));
+    strncpy(custom.smtp_host, "smtp.office365.com", sizeof(custom.smtp_host) - 1);
+    custom.smtp_port = 587;
+    strncpy(custom.smtp_username, "alerts@apcoaching.edu", sizeof(custom.smtp_username) - 1);
+    strncpy(custom.smtp_password, "SecretToken_2026", sizeof(custom.smtp_password) - 1);
+    strncpy(custom.smtp_encryption, "STARTTLS", sizeof(custom.smtp_encryption) - 1);
+    strncpy(custom.smtp_sender_name, "APCOACHING Gateway", sizeof(custom.smtp_sender_name) - 1);
+    strncpy(custom.smtp_sender_email, "alerts@apcoaching.edu", sizeof(custom.smtp_sender_email) - 1);
+
+    assert(settings_service_save_smtp(&custom));
+
+    SmtpConfig reloaded;
+    assert(settings_service_get_smtp(&reloaded));
+    assert(strcmp(reloaded.smtp_host, "smtp.office365.com") == 0);
+    assert(reloaded.smtp_port == 587);
+    assert(strcmp(reloaded.smtp_username, "alerts@apcoaching.edu") == 0);
+    assert(strcmp(reloaded.smtp_sender_name, "APCOACHING Gateway") == 0);
+    printf("       Custom SMTP configuration saved and reloaded -> PASS\n");
+
+    /* 3. Validation tests */
+    char out_msg[512];
+    SmtpConfig bad_cfg = custom;
+
+    /* Empty host */
+    bad_cfg.smtp_host[0] = '\0';
+    assert(!settings_service_test_smtp(&bad_cfg, out_msg, sizeof(out_msg)));
+    assert(strstr(out_msg, "Validation Error") != NULL);
+
+    /* Invalid port */
+    bad_cfg = custom;
+    bad_cfg.smtp_port = 70000;
+    assert(!settings_service_test_smtp(&bad_cfg, out_msg, sizeof(out_msg)));
+    assert(strstr(out_msg, "Invalid port") != NULL);
+
+    /* Invalid email */
+    bad_cfg = custom;
+    strncpy(bad_cfg.smtp_sender_email, "no_at_symbol_email", sizeof(bad_cfg.smtp_sender_email) - 1);
+    assert(!settings_service_test_smtp(&bad_cfg, out_msg, sizeof(out_msg)));
+    assert(strstr(out_msg, "missing '@'") != NULL);
+
+    /* Host resolution failure */
+    bad_cfg = custom;
+    strncpy(bad_cfg.smtp_host, "nonexistent.smtp.invalid-domain-test.local", sizeof(bad_cfg.smtp_host) - 1);
+    bool test_res = settings_service_test_smtp(&bad_cfg, out_msg, sizeof(out_msg));
+    assert(!test_res && "Resolution of invalid domain should fail gracefully");
+    assert(strlen(out_msg) > 0);
+    printf("       SMTP validation and socket error handling verified -> PASS\n");
+}
+
 int main(void)
 {
     printf("====================================================\n");
@@ -180,6 +243,7 @@ int main(void)
     test_backup_and_restore();
     test_backup_list_and_delete();
     test_audit_logs();
+    test_smtp_configuration();
 
     db_close();
     cleanup_files();
