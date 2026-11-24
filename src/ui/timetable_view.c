@@ -23,6 +23,7 @@ typedef struct {
     GtkWidget *tab_teacher_btn;
     GtkWidget *content_container;
     GtkWidget *add_slot_btn;
+    GtkWidget *status_banner;
 
     TimetableTab current_tab;
 
@@ -53,6 +54,20 @@ static void update_sections_dropdown(TimetableWidgets *tw);
 static void show_add_edit_slot_dialog(TimetableWidgets *tw, int slot_id);
 static void show_delete_slot_dialog(TimetableWidgets *tw, int slot_id);
 
+static void show_status_message(TimetableWidgets *tw, const char *msg, bool is_success)
+{
+    if (!tw || !tw->status_banner) return;
+    gtk_label_set_text(GTK_LABEL(tw->status_banner), msg);
+    if (is_success) {
+        gtk_widget_remove_css_class(tw->status_banner, "card-kpi-red");
+        gtk_widget_add_css_class(tw->status_banner, "card-kpi-green");
+    } else {
+        gtk_widget_remove_css_class(tw->status_banner, "card-kpi-green");
+        gtk_widget_add_css_class(tw->status_banner, "card-kpi-red");
+    }
+    gtk_widget_set_visible(tw->status_banner, TRUE);
+}
+
 /* ── Tab Switch Handlers ─────────────────────────────────────────── */
 
 static void on_tab_class_clicked(GtkButton *btn, gpointer user_data)
@@ -60,6 +75,7 @@ static void on_tab_class_clicked(GtkButton *btn, gpointer user_data)
     (void)btn;
     TimetableWidgets *tw = (TimetableWidgets *)user_data;
     tw->current_tab = TAB_CLASS_SCHEDULE;
+    if (tw->status_banner) gtk_widget_set_visible(tw->status_banner, FALSE);
     gtk_widget_add_css_class(tw->tab_class_btn, "tab-btn-active");
     gtk_widget_remove_css_class(tw->tab_teacher_btn, "tab-btn-active");
     refresh_view(tw);
@@ -70,6 +86,7 @@ static void on_tab_teacher_clicked(GtkButton *btn, gpointer user_data)
     (void)btn;
     TimetableWidgets *tw = (TimetableWidgets *)user_data;
     tw->current_tab = TAB_TEACHER_SCHEDULE;
+    if (tw->status_banner) gtk_widget_set_visible(tw->status_banner, FALSE);
     gtk_widget_remove_css_class(tw->tab_class_btn, "tab-btn-active");
     gtk_widget_add_css_class(tw->tab_teacher_btn, "tab-btn-active");
     refresh_view(tw);
@@ -581,6 +598,9 @@ static void on_save_slot_dialog(GtkButton *btn, gpointer user_data)
             gtk_widget_set_visible(d->lbl_conflict_error, TRUE);
             return;
         }
+        show_status_message(d->tw, "Failed to save timetable slot.", false);
+    } else {
+        show_status_message(d->tw, "Timetable period slot assigned successfully.", true);
     }
 
     refresh_view(d->tw);
@@ -806,7 +826,11 @@ static void on_confirm_delete_slot(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     DeleteSlotData *d = (DeleteSlotData *)user_data;
-    timetable_service_delete(d->slot_id);
+    if (timetable_service_delete(d->slot_id)) {
+        show_status_message(d->tw, "Timetable period slot deleted successfully.", true);
+    } else {
+        show_status_message(d->tw, "Failed to delete timetable slot.", false);
+    }
     refresh_view(d->tw);
     gtk_window_destroy(GTK_WINDOW(d->dialog));
     g_free(d);
@@ -894,6 +918,12 @@ GtkWidget *school_timetable_view_new(void)
     gtk_box_append(GTK_BOX(top_row), tw->add_slot_btn);
 
     gtk_box_append(GTK_BOX(box), top_row);
+
+    /* ── Status Banner ───────────────────────────────────────────── */
+    tw->status_banner = gtk_label_new("");
+    gtk_widget_add_css_class(tw->status_banner, "card");
+    gtk_widget_set_visible(tw->status_banner, FALSE);
+    gtk_box_append(GTK_BOX(box), tw->status_banner);
 
     /* Tabs */
     GtkWidget *tab_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
