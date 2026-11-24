@@ -1,26 +1,22 @@
 #!/usr/bin/env python3
 """
-bump_version.py — SchoolCMS Version Bump Script
-================================================
-Updates the version string in ALL project files, creates an annotated git tag,
-and optionally pushes to origin.
+bump_version.py — SchoolCMS / APCOACHING Version Bump Script
+============================================================
+Updates the version string across all project files, updates CHANGELOG.md,
+creates individual git commits (1 commit per file), creates an annotated
+git tag, and optionally pushes to origin.
 
 Usage:
-    python scripts/bump_version.py <new_version> [--message "Release notes"] [--push] [--dry-run]
+    python scripts/bump_version.py [new_version] [--patch | --minor | --major]
+                                   [--message "Release notes"] [--push] [--dry-run]
 
 Examples:
-    python scripts/bump_version.py 1.2.0
-    python scripts/bump_version.py 1.2.0 --message "ID Card printing improvements and bug fixes"
-    python scripts/bump_version.py 1.2.0 --push
-    python scripts/bump_version.py 1.2.0 --dry-run
-
-Files updated:
-    - CMakeLists.txt          (project version)
-    - src/ui/sidebar.c        (sidebar footer label)
-    - src/ui/window.c         (status bar label)
-    - scripts/package_windows.py (PACKAGE_NAME and version comments)
-    - scripts/installer.nsi   (APP_VERSION and folder path)
-    - README.md               (badge + history table row)
+    python scripts/bump_version.py                   # Interactive menu
+    python scripts/bump_version.py --patch           # Auto-bump patch (1.1.3 -> 1.1.4)
+    python scripts/bump_version.py --minor           # Auto-bump minor (1.1.3 -> 1.2.0)
+    python scripts/bump_version.py 1.2.0             # Explicit version
+    python scripts/bump_version.py --patch --push    # Bump patch and push to GitHub
+    python scripts/bump_version.py 1.2.0 --dry-run   # Preview changes without modifying
 """
 
 import sys
@@ -28,260 +24,37 @@ import os
 import re
 import subprocess
 import argparse
-from datetime import datetime
-
-# ---------------------------------------------------------------------------
-# File definitions: each entry has the file path and one or more replacements.
-# Each replacement is a (regex_pattern, new_string_template) pair.
-# In new_string_template, {new} = new version, {old} = old version.
-# ---------------------------------------------------------------------------
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-VERSION_FILES = [
-    {
-        "path": "CMakeLists.txt",
-        "replacements": [
-            (
-                r'project\(SchoolCMS VERSION \d+\.\d+\.\d+ LANGUAGES C\)',
-                "project(APCOACHING VERSION {new} LANGUAGES C)"
-            ),
-        ],
-    },
-    {
-        "path": "src/ui/sidebar.c",
-        "replacements": [
-            (
-                r'"APCOACHING v\d+\.\d+\.\d+"',
-                '"APCOACHING v{new}"'
-            ),
-        ],
-    },
-    {
-        "path": "src/ui/window.c",
-        "replacements": [
-            (
-                r'"APCOACHING v\d+\.\d+\.\d+  •  Authenticated"',
-                '"APCOACHING v{new}  \u2022  Authenticated"'
-            ),
-        ],
-    },
-    {
-        "path": "scripts/package_windows.py",
-        "replacements": [
-            (
-                r'PACKAGE_NAME = "APCOACHING-v\d+\.\d+\.\d+-windows-x64"',
-                'PACKAGE_NAME = "APCOACHING-v{new}-windows-x64"'
-            ),
-            (
-                r'APCOACHING-v\d+\.\d+\.\d+-windows-x64\b(?!\")',
-                "APCOACHING-v{new}-windows-x64"
-            ),
-            (
-                r'Version \d+\.\d+\.\d+ \(x86_64\)',
-                "Version {new} (x86_64)"
-            ),
-        ],
-    },
-    {
-        "path": "scripts/installer.nsi",
-        "replacements": [
-            (
-                r'!define APP_VERSION "\d+\.\d+\.\d+"',
-                '!define APP_VERSION "{new}"'
-            ),
-            (
-                r'APCOACHING-v\d+\.\d+\.\d+-windows-x64',
-                "APCOACHING-v{new}-windows-x64"
-            ),
-        ],
-    },
-    {
-        "path": "README.md",
-        "replacements": [
-            (
-                r'https://img\.shields\.io/badge/Release-v\d+\.\d+\.\d+-brightgreen\.svg',
-                "https://img.shields.io/badge/Release-v{new}-brightgreen.svg"
-            ),
-        ],
-    },
-]
-
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Dynamic App & Version Detection
 # ---------------------------------------------------------------------------
 
-def run(cmd, cwd=REPO_ROOT, capture=True):
-    """Run a shell command and return (returncode, stdout, stderr)."""
-    result = subprocess.run(
-        cmd, shell=True, cwd=cwd,
-        capture_output=capture, text=True
-    )
-    return result.returncode, result.stdout.strip(), result.stderr.strip()
-
-
-def detect_current_version():
-    """Read the current version from CMakeLists.txt."""
+def detect_app_info():
+    """Read the current project name and version from CMakeLists.txt."""
     path = os.path.join(REPO_ROOT, "CMakeLists.txt")
-    with open(path, "r", encoding="utf-8") as f:
-        content = f.read()
-    m = re.search(r'project\(SchoolCMS VERSION (\d+\.\d+\.\d+)', content)
-    if m:
-        return m.group(1)
-    return "unknown"
+    app_name = "APCOACHING"
+    version = "1.1.3"
+
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+        m = re.search(r'project\(\s*([A-Za-z0-9_-]+)\s+VERSION\s+(\d+\.\d+\.\d+)', content)
+        if m:
+            app_name = m.group(1)
+            version = m.group(2)
+
+    return app_name, version
 
 
 def validate_semver(version):
     """Ensure version matches MAJOR.MINOR.PATCH."""
     if not re.fullmatch(r'\d+\.\d+\.\d+', version):
-        print(f"[ERROR] Version must be MAJOR.MINOR.PATCH format (e.g. 1.2.0). Got: {version}")
+        print(f"[ERROR] Version must be MAJOR.MINOR.PATCH format (e.g. 1.2.0). Got: '{version}'")
         sys.exit(1)
 
-
-def bump_file(rel_path, old_ver, new_ver, dry_run):
-    """Apply all version replacements to a single file."""
-    abs_path = os.path.join(REPO_ROOT, rel_path.replace("/", os.sep))
-
-    if not os.path.exists(abs_path):
-        print(f"  [SKIP] {rel_path}  (file not found)")
-        return False
-
-    with open(abs_path, "r", encoding="utf-8") as f:
-        original = f.read()
-
-    content = original
-    for file_def in VERSION_FILES:
-        if file_def["path"] == rel_path:
-            for pattern, template in file_def["replacements"]:
-                replacement = template.replace("{new}", new_ver).replace("{old}", old_ver)
-                new_content = re.sub(pattern, replacement, content)
-                if new_content != content:
-                    content = new_content
-
-    if content == original:
-        print(f"  [NO-CHANGE] {rel_path}")
-        return False
-
-    if dry_run:
-        # Show a brief diff
-        orig_lines = original.splitlines()
-        new_lines = content.splitlines()
-        changes = [(i+1, o, n) for i, (o, n) in enumerate(zip(orig_lines, new_lines)) if o != n]
-        print(f"  [DRY-RUN] {rel_path}  ({len(changes)} line(s) would change)")
-        for lineno, old_line, new_line in changes[:5]:
-            print(f"    L{lineno}: - {old_line.strip()}")
-            print(f"    L{lineno}: + {new_line.strip()}")
-        return True
-
-    with open(abs_path, "w", encoding="utf-8") as f:
-        f.write(content)
-
-    print(f"  [UPDATED] {rel_path}")
-    return True
-
-
-def append_readme_history(new_ver, message, dry_run):
-    """Append a new row to the Release Tags & Version History table in README.md."""
-    abs_path = os.path.join(REPO_ROOT, "README.md")
-    with open(abs_path, "r", encoding="utf-8") as f:
-        content = f.read()
-
-    # Get current HEAD commit hash (short)
-    _, commit_hash, _ = run("git rev-parse --short HEAD")
-
-    new_row = f"| `v{new_ver}` | `{commit_hash}` | {message} |"
-
-    # Find the last table row before the closing --- and insert after it
-    # Pattern: last line matching the tag table format before "---"
-    last_row_pattern = re.compile(
-        r'(\| `v\d+\.\d+\.\d+` \| `[0-9a-f]+` \| .+ \|\n)',
-        re.MULTILINE
-    )
-    matches = list(last_row_pattern.finditer(content))
-    if not matches:
-        print("  [WARN] Could not locate version history table in README.md")
-        return
-
-    last_match = matches[-1]
-    # Don't duplicate if already in there
-    if f"v{new_ver}" in content:
-        print(f"  [SKIP] README history table already has v{new_ver}")
-        return
-
-    new_content = (
-        content[:last_match.end()]
-        + new_row + "\n"
-        + content[last_match.end():]
-    )
-
-    if dry_run:
-        print(f"  [DRY-RUN] README.md  (would append history row: {new_row})")
-        return
-
-    with open(abs_path, "w", encoding="utf-8") as f:
-        f.write(new_content)
-    print(f"  [UPDATED] README.md  (history row appended)")
-
-
-def git_commit_file(rel_path, new_ver):
-    """Stage and commit a single file (1 commit per file rule)."""
-    file_path = rel_path.replace("/", os.sep)
-    rc, out, err = run(f'git add "{file_path}"')
-    if rc != 0:
-        print(f"  [GIT ERROR] git add {file_path}: {err}")
-        return False
-
-    # Check if there's actually something staged
-    rc2, diff_out, _ = run(f'git diff --cached --name-only "{file_path}"')
-    if not diff_out.strip():
-        print(f"  [NO-STAGE] {rel_path}  (nothing to commit)")
-        return False
-
-    msg = f"chore: bump version to {new_ver} in {os.path.basename(rel_path)}"
-    rc3, _, err3 = run(f'git commit -m "{msg}"')
-    if rc3 != 0:
-        print(f"  [GIT ERROR] commit failed: {err3}")
-        return False
-
-    _, short_hash, _ = run("git rev-parse --short HEAD")
-    print(f"  [COMMIT] {short_hash}  {rel_path}")
-    return True
-
-
-def git_tag(new_ver, message):
-    """Create an annotated git tag."""
-    tag = f"v{new_ver}"
-    full_msg = message if message else f"SchoolCMS {tag} release"
-    rc, out, err = run(f'git tag -a "{tag}" -m "{full_msg}"')
-    if rc != 0:
-        print(f"  [GIT ERROR] tag failed: {err}")
-        return False
-    print(f"  [TAG] Created annotated tag: {tag}")
-    return True
-
-
-def git_push():
-    """Push commits and tags to origin."""
-    print("\nPushing commits to origin main...")
-    rc1, out1, err1 = run("git push origin main")
-    if rc1 != 0 and "error" in err1.lower():
-        print(f"  [GIT ERROR] push commits: {err1}")
-        return False
-    print("  [PUSH] Commits pushed")
-
-    print("Pushing tags to origin...")
-    rc2, out2, err2 = run("git push origin --tags")
-    if rc2 != 0 and "error" in err2.lower():
-        print(f"  [GIT ERROR] push tags: {err2}")
-        return False
-    print("  [PUSH] Tags pushed")
-    return True
-
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
 
 def calculate_bump(old_ver, bump_type):
     """Calculate the next semver based on bump type ('patch', 'minor', 'major')."""
@@ -301,27 +74,269 @@ def calculate_bump(old_ver, bump_type):
     return f"{major}.{minor}.{patch}"
 
 
-def prompt_user_for_version(old_ver):
+# ---------------------------------------------------------------------------
+# Shell & Git Execution
+# ---------------------------------------------------------------------------
+
+def run(cmd, cwd=REPO_ROOT, capture=True):
+    """Run a shell command and return (returncode, stdout, stderr)."""
+    result = subprocess.run(
+        cmd, shell=True, cwd=cwd,
+        capture_output=capture, text=True
+    )
+    return result.returncode, result.stdout.strip(), result.stderr.strip()
+
+
+# ---------------------------------------------------------------------------
+# File Replacement Definitions
+# ---------------------------------------------------------------------------
+
+def get_version_files(app_name):
+    """Generate replacement definitions dynamically for the detected app name."""
+    return [
+        {
+            "path": "CMakeLists.txt",
+            "replacements": [
+                (
+                    r'project\(\s*([A-Za-z0-9_-]+)\s+VERSION\s+\d+\.\d+\.\d+',
+                    r'project(\1 VERSION {new}'
+                ),
+            ],
+        },
+        {
+            "path": "src/ui/sidebar.c",
+            "replacements": [
+                (
+                    r'gtk_label_new\("([A-Za-z0-9_-]+)\s+v\d+\.\d+\.\d+"\)',
+                    r'gtk_label_new("\1 v{new}")'
+                ),
+            ],
+        },
+        {
+            "path": "src/ui/window.c",
+            "replacements": [
+                (
+                    r'gtk_label_new\("([A-Za-z0-9_-]+)\s+v\d+\.\d+\.\d+\s+•\s+Authenticated"\)',
+                    r'gtk_label_new("\1 v{new}  •  Authenticated")'
+                ),
+            ],
+        },
+        {
+            "path": "scripts/package_windows.py",
+            "replacements": [
+                (
+                    r'PACKAGE_NAME = "([A-Za-z0-9_-]+)-v\d+\.\d+\.\d+-windows-x64"',
+                    r'PACKAGE_NAME = "\1-v{new}-windows-x64"'
+                ),
+                (
+                    r'Version \d+\.\d+\.\d+ \(x86_64\)',
+                    r'Version {new} (x86_64)'
+                ),
+            ],
+        },
+        {
+            "path": "installer/installer.nsi",
+            "replacements": [
+                (
+                    r'!define APP_VERSION "\d+\.\d+\.\d+"',
+                    r'!define APP_VERSION "{new}"'
+                ),
+            ],
+        },
+        {
+            "path": "README.md",
+            "replacements": [
+                (
+                    r'https://img\.shields\.io/badge/Release-v\d+\.\d+\.\d+-brightgreen\.svg',
+                    r'https://img.shields.io/badge/Release-v{new}-brightgreen.svg'
+                ),
+                (
+                    r'\|\s*v\d+\.\d+\.\d+\s*\|\s*Recent Institutional Audit Activity',
+                    r'| v{new}            |  Recent Institutional Audit Activity'
+                ),
+                (
+                    r'([A-Za-z0-9_-]+)-v\d+\.\d+\.\d+-Setup\.exe',
+                    r'\1-v{new}-Setup.exe'
+                ),
+            ],
+        },
+        {
+            "path": "docs/PACKAGING.md",
+            "replacements": [
+                (
+                    r'([A-Za-z0-9_-]+)-v\d+\.\d+\.\d+-windows-x64',
+                    r'\1-v{new}-windows-x64'
+                ),
+                (
+                    r'([A-Za-z0-9_-]+)-v\d+\.\d+\.\d+-Setup\.exe',
+                    r'\1-v{new}-Setup.exe'
+                ),
+            ],
+        },
+    ]
+
+
+def bump_file(rel_path, replacements, old_ver, new_ver, dry_run):
+    """Apply version replacements to a single file."""
+    abs_path = os.path.join(REPO_ROOT, rel_path.replace("/", os.sep))
+
+    if not os.path.exists(abs_path):
+        print(f"  [SKIP] {rel_path}  (file not found)")
+        return False
+
+    with open(abs_path, "r", encoding="utf-8") as f:
+        original = f.read()
+
+    content = original
+    for pattern, template in replacements:
+        replacement = template.replace("{new}", new_ver).replace("{old}", old_ver)
+        new_content = re.sub(pattern, replacement, content)
+        if new_content != content:
+            content = new_content
+
+    if content == original:
+        print(f"  [NO-CHANGE] {rel_path}")
+        return False
+
+    if dry_run:
+        orig_lines = original.splitlines()
+        new_lines = content.splitlines()
+        changes = [(i+1, o, n) for i, (o, n) in enumerate(zip(orig_lines, new_lines)) if o != n]
+        print(f"  [DRY-RUN] {rel_path}  ({len(changes)} line(s) would change)")
+        for lineno, old_line, new_line in changes[:4]:
+            print(f"    L{lineno}: - {old_line.strip()}")
+            print(f"    L{lineno}: + {new_line.strip()}")
+        return True
+
+    with open(abs_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+    print(f"  [UPDATED] {rel_path}")
+    return True
+
+
+def update_changelog(new_ver, message, dry_run):
+    """Add new release section and tag row to docs/CHANGELOG.md."""
+    abs_path = os.path.join(REPO_ROOT, "docs", "CHANGELOG.md")
+    if not os.path.exists(abs_path):
+        print("  [WARN] docs/CHANGELOG.md not found, skipping changelog update")
+        return False
+
+    with open(abs_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    if f"v{new_ver}" in content:
+        print(f"  [SKIP] docs/CHANGELOG.md already contains v{new_ver}")
+        return False
+
+    # Get current commit hash (short)
+    _, commit_hash, _ = run("git rev-parse --short HEAD")
+    if not commit_hash or len(commit_hash) < 4:
+        commit_hash = "HEAD"
+
+    # 1. Add new milestone header under "## Version Milestones"
+    milestone_header = "## Version Milestones\n"
+    new_milestone = (
+        f"\n### v{new_ver} (Current Release)\n"
+        f"- {message}\n"
+    )
+    if milestone_header in content:
+        content = content.replace("(Current Release)", "").replace(milestone_header, milestone_header + new_milestone)
+
+    # 2. Add new tag row to the table under "## Annotated Git Tags History"
+    new_tag_row = f"| `v{new_ver}` | `{commit_hash}` | {message} |\n"
+    table_marker = re.search(r'(\| `v\d+\.\d+\.\d+` \| `[0-9a-f]+` \| .+ \|\n)', content)
+    if table_marker:
+        # Find the last table row
+        last_match = list(re.finditer(r'(\| `v\d+\.\d+\.\d+` \| `[0-9a-f]+` \| .+ \|\n)', content))[-1]
+        content = content[:last_match.end()] + new_tag_row + content[last_match.end():]
+
+    if dry_run:
+        print(f"  [DRY-RUN] docs/CHANGELOG.md  (would add v{new_ver} section & history tag row)")
+        return True
+
+    with open(abs_path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+    print(f"  [UPDATED] docs/CHANGELOG.md  (v{new_ver} milestone added)")
+    return True
+
+
+def git_commit_file(rel_path, new_ver):
+    """Stage and commit a single file individually (1 commit per file rule)."""
+    file_path = rel_path.replace("/", os.sep)
+    rc, out, err = run(f'git add "{file_path}"')
+    if rc != 0:
+        print(f"  [GIT ERROR] git add {file_path}: {err}")
+        return False
+
+    rc2, diff_out, _ = run(f'git diff --cached --name-only "{file_path}"')
+    if not diff_out.strip():
+        print(f"  [NO-STAGE] {rel_path}  (no staged changes)")
+        return False
+
+    msg = f"chore: bump version to {new_ver} in {os.path.basename(rel_path)}"
+    rc3, _, err3 = run(f'git commit -m "{msg}"')
+    if rc3 != 0:
+        print(f"  [GIT ERROR] commit failed: {err3}")
+        return False
+
+    _, short_hash, _ = run("git rev-parse --short HEAD")
+    print(f"  [COMMIT] {short_hash}  {rel_path}")
+    return True
+
+
+def git_tag(new_ver, message):
+    """Create an annotated git tag."""
+    tag = f"v{new_ver}"
+    rc, out, err = run(f'git tag -a "{tag}" -m "{message}"')
+    if rc != 0:
+        print(f"  [GIT ERROR] tag failed: {err}")
+        return False
+    print(f"  [TAG] Created annotated tag: {tag}")
+    return True
+
+
+def git_push():
+    """Push commits and tags to origin."""
+    print("\nPushing commits to origin main...")
+    rc1, out1, err1 = run("git push origin main")
+    if rc1 != 0 and "error" in err1.lower():
+        print(f"  [GIT ERROR] push commits: {err1}")
+        return False
+    print("  [PUSH] Commits pushed to origin main")
+
+    print("Pushing tags to origin...")
+    rc2, out2, err2 = run("git push origin --tags")
+    if rc2 != 0 and "error" in err2.lower():
+        print(f"  [GIT ERROR] push tags: {err2}")
+        return False
+    print("  [PUSH] Tags pushed to origin")
+    return True
+
+
+def prompt_user_for_version(old_ver, app_name):
     """Interactive CLI menu when no version argument is passed."""
     patch_v = calculate_bump(old_ver, "patch")
     minor_v = calculate_bump(old_ver, "minor")
     major_v = calculate_bump(old_ver, "major")
 
-    print("\n" + "=" * 50)
-    print(f"  Current SchoolCMS Version: v{old_ver}")
-    print("=" * 50)
+    print("\n" + "=" * 54)
+    print(f"   {app_name} Version Bump Wizard")
+    print(f"   Current Version: v{old_ver}")
+    print("=" * 54)
     print("Select version upgrade option:")
-    print(f"  1) Patch: v{patch_v}  (Bug fixes, minor tweaks)")
-    print(f"  2) Minor: v{minor_v}  (New features, UI improvements)")
-    print(f"  3) Major: v{major_v}  (Breaking changes, major release)")
-    print("  4) Custom version string")
-    print("=" * 50)
+    print(f"  1) Patch : v{patch_v}  (Bug fixes, minor tweaks) [DEFAULT]")
+    print(f"  2) Minor : v{minor_v}  (New features, UI improvements)")
+    print(f"  3) Major : v{major_v}  (Major architectural upgrade)")
+    print(f"  4) Custom version string")
+    print("=" * 54)
 
     try:
         choice = input("\nEnter choice [1/2/3/4] or custom version (default 1): ").strip()
     except (EOFError, KeyboardInterrupt):
-        print("\nAborted.")
-        sys.exit(0)
+        print(f"\nDefaulting to patch bump: v{patch_v}")
+        return patch_v
 
     if not choice or choice == "1":
         return patch_v
@@ -333,37 +348,39 @@ def prompt_user_for_version(old_ver):
         try:
             custom = input("Enter custom version (e.g. 1.2.0): ").strip()
         except (EOFError, KeyboardInterrupt):
-            print("\nAborted.")
-            sys.exit(0)
+            return patch_v
         return custom.lstrip("v")
     else:
-        # User might have typed the version directly (e.g. "1.2.0")
         return choice.lstrip("v")
 
 
+# ---------------------------------------------------------------------------
+# Main Routine
+# ---------------------------------------------------------------------------
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Bump SchoolCMS version across all project files."
+        description="Bump SchoolCMS / APCOACHING version across all project files."
     )
     parser.add_argument(
         "new_version", nargs="?", default=None,
-        help="New version string, e.g. 1.2.0 (optional if --patch/--minor/--major is used)"
+        help="Target version string, e.g. 1.2.0 (optional)"
     )
     parser.add_argument(
         "--patch", action="store_true",
-        help="Automatically bump patch version (e.g. 1.1.0 -> 1.1.1)"
+        help="Automatically bump patch version (e.g. 1.1.3 -> 1.1.4)"
     )
     parser.add_argument(
         "--minor", action="store_true",
-        help="Automatically bump minor version (e.g. 1.1.0 -> 1.2.0)"
+        help="Automatically bump minor version (e.g. 1.1.3 -> 1.2.0)"
     )
     parser.add_argument(
         "--major", action="store_true",
-        help="Automatically bump major version (e.g. 1.1.0 -> 2.0.0)"
+        help="Automatically bump major version (e.g. 1.1.3 -> 2.0.0)"
     )
     parser.add_argument(
         "--message", "-m", default="",
-        help="Release description for git tag annotation and README history table."
+        help="Release description for git tag and changelog."
     )
     parser.add_argument(
         "--push", action="store_true",
@@ -371,11 +388,11 @@ def main():
     )
     parser.add_argument(
         "--dry-run", action="store_true",
-        help="Show what would change without writing any files or creating commits/tags."
+        help="Preview changes without modifying files or creating git commits."
     )
     args = parser.parse_args()
 
-    old_ver = detect_current_version()
+    app_name, old_ver = detect_app_info()
 
     # Determine target new version
     if args.new_version:
@@ -387,49 +404,49 @@ def main():
     elif args.major:
         new_ver = calculate_bump(old_ver, "major")
     else:
-        # Check if stdin is interactive
-        if sys.stdin.isatty():
-            new_ver = prompt_user_for_version(old_ver)
-        else:
-            print(f"[ERROR] Version argument missing. Current version is v{old_ver}")
-            print("\nUsage examples:")
-            print("  python scripts/bump_version.py 1.2.0")
-            print("  python scripts/bump_version.py --patch")
-            print("  python scripts/bump_version.py --minor")
-            print("  python scripts/bump_version.py --major")
-            print("  python scripts/bump_version.py 1.2.0 --dry-run")
-            sys.exit(1)
+        new_ver = prompt_user_for_version(old_ver, app_name)
 
     validate_semver(new_ver)
 
+    print()
     print("=" * 60)
-    print(f"  SchoolCMS Version Bump")
-    print(f"  {old_ver}  -->  {new_ver}")
+    print(f"  {app_name} Version Bump")
+    print(f"  Current : v{old_ver}")
+    print(f"  Target  : v{new_ver}")
     if args.dry_run:
-        print("  MODE: DRY RUN (no files will be written)")
+        print("  MODE    : DRY RUN (no files will be written)")
     print("=" * 60)
     print()
 
     if old_ver == new_ver:
-        print(f"[ERROR] New version ({new_ver}) is the same as the current version. Aborting.")
+        print(f"[ERROR] Target version ({new_ver}) is identical to current version. Aborting.")
         sys.exit(1)
 
-    # ── Step 1: Update all version files ────────────────────────────
-    print("Step 1: Updating version strings in source files...")
+    # ── Step 1: Update source files ─────────────────────────────────
+    print("Step 1: Updating version strings in project files...")
+    version_files = get_version_files(app_name)
     changed_files = []
-    for file_def in VERSION_FILES:
-        changed = bump_file(file_def["path"], old_ver, new_ver, args.dry_run)
+
+    for file_def in version_files:
+        changed = bump_file(
+            file_def["path"],
+            file_def["replacements"],
+            old_ver,
+            new_ver,
+            args.dry_run
+        )
         if changed:
             changed_files.append(file_def["path"])
 
     print()
 
-    # ── Step 2: Append README version history row ────────────────────
-    print("Step 2: Appending version history row to README.md...")
-    history_message = args.message if args.message else f"APCOACHING v{new_ver} release"
-    append_readme_history(new_ver, history_message, args.dry_run)
-    if "README.md" not in changed_files:
-        changed_files.append("README.md")
+    # ── Step 2: Update docs/CHANGELOG.md ────────────────────────────
+    print("Step 2: Updating docs/CHANGELOG.md...")
+    release_notes = args.message if args.message else f"{app_name} v{new_ver} release"
+    cl_changed = update_changelog(new_ver, release_notes, args.dry_run)
+    if cl_changed and "docs/CHANGELOG.md" not in changed_files:
+        changed_files.append("docs/CHANGELOG.md")
+
     print()
 
     if args.dry_run:
@@ -439,32 +456,32 @@ def main():
         return
 
     if not changed_files:
-        print("[WARN] No files were changed. Is the version already up to date?")
+        print("[WARN] No files were changed. Version may already be up to date.")
         sys.exit(0)
 
-    # ── Step 3: Commit each file (1 commit per file) ──────────────────
-    print("Step 3: Committing each file individually...")
+    # ── Step 3: Commit each file individually (1 commit per file) ───
+    print("Step 3: Committing changed files individually (1 commit per file)...")
     for rel_path in changed_files:
         git_commit_file(rel_path, new_ver)
+
     print()
 
     # ── Step 4: Create annotated git tag ─────────────────────────────
     print("Step 4: Creating annotated git tag...")
-    tag_message = args.message if args.message else f"APCOACHING v{new_ver} release"
-    git_tag(new_ver, tag_message)
+    git_tag(new_ver, release_notes)
     print()
 
     # ── Step 5: Push (optional) ───────────────────────────────────────
     if args.push:
-        print("Step 5: Pushing to origin...")
+        print("Step 5: Pushing commits and tags to origin...")
         git_push()
     else:
-        print("Step 5: (Skipped — run with --push to push commits and tag)")
-        print(f"\n  To push manually:\n    git push origin main\n    git push origin v{new_ver}")
+        print("Step 5: Push skipped (use --push to push automatically)")
+        print(f"\n  To push manually run:\n    git push origin main\n    git push origin v{new_ver}")
 
     print()
     print("=" * 60)
-    print(f"  Version bumped to v{new_ver} successfully!")
+    print(f"  SUCCESS! Version bumped to v{new_ver} successfully.")
     print("=" * 60)
 
 
