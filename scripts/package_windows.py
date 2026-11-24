@@ -63,7 +63,11 @@ def main():
         sys.exit(1)
 
     if TARGET_DIR.exists():
-        shutil.rmtree(TARGET_DIR)
+        def remove_readonly(func, path, exc_info):
+            import stat
+            os.chmod(path, stat.S_IWRITE)
+            func(path)
+        shutil.rmtree(TARGET_DIR, onexc=remove_readonly)
     TARGET_DIR.mkdir(parents=True, exist_ok=True)
 
     # 1. Copy executable
