@@ -267,7 +267,7 @@ static void refresh_report(ReportsWidgets *rw)
 
     /* Data Rows in Scrollable Container */
     GtkWidget *scrolled = gtk_scrolled_window_new();
-    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scrolled), 380);
+    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scrolled), 180);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
     GtkWidget *rows_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
@@ -313,7 +313,7 @@ GtkWidget *school_reports_view_new(void)
     gtk_widget_set_margin_top(rw->root_box, 20);
     gtk_widget_set_margin_bottom(rw->root_box, 24);
 
-    g_object_set_data_full(G_OBJECT(rw->root_box), "reports_state", rw, g_free);
+    g_object_set_data(G_OBJECT(rw->root_box), "reports_state", rw);
 
     /* ── Header Bar ─────────────────────────────────────────────── */
     GtkWidget *hdr = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
@@ -440,7 +440,18 @@ GtkWidget *school_reports_view_new(void)
     /* Initial Load */
     refresh_report(rw);
 
-    return rw->root_box;
+    /* Wrap in scrolled window so reports page shrinks gracefully */
+    GtkWidget *page_scroll = gtk_scrolled_window_new();
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(page_scroll),
+                                   GTK_POLICY_AUTOMATIC,
+                                   GTK_POLICY_AUTOMATIC);
+    gtk_widget_set_hexpand(page_scroll, TRUE);
+    gtk_widget_set_vexpand(page_scroll, TRUE);
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(page_scroll), rw->root_box);
+
+    g_object_set_data_full(G_OBJECT(page_scroll), "reports_state", rw, g_free);
+
+    return page_scroll;
 }
 
 void school_reports_view_reload(GtkWidget *view)
