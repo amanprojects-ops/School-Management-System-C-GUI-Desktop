@@ -13,7 +13,7 @@
 #include <stdbool.h>
 
 /** Current target schema version */
-#define DB_CURRENT_VERSION 1
+#define DB_CURRENT_VERSION 2
 
 /** Default database filename */
 #define DB_DEFAULT_FILE "schoolcms.db"
