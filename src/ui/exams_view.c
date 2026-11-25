@@ -4,6 +4,7 @@
  */
 
 #include "ui/exams_view.h"
+#include "ui/dialog.h"
 #include "exams.h"
 #include "classes.h"
 #include "student.h"
@@ -184,8 +185,7 @@ static void on_confirm_delete_exam(GtkButton *btn, gpointer user_data)
         show_status_message(d->evw, "Failed to delete examination.", false);
     }
     refresh_view(d->evw);
-    gtk_window_destroy(GTK_WINDOW(d->dialog));
-    g_free(d);
+    school_dialog_close(d->dialog);
 }
 
 static void show_delete_exam_dialog(ExamsViewWidgets *evw, int exam_id, const char *exam_name)
@@ -194,18 +194,15 @@ static void show_delete_exam_dialog(ExamsViewWidgets *evw, int exam_id, const ch
     d->evw = evw;
     d->exam_id = exam_id;
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new("Confirm Exam Deletion", 420, 200);
     d->dialog = win;
-    gtk_window_set_title(GTK_WINDOW(win), "Confirm Exam Deletion");
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(win), 420, 200);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_start(box, 24);
     gtk_widget_set_margin_end(box, 24);
-    gtk_widget_set_margin_top(box, 24);
-    gtk_widget_set_margin_bottom(box, 24);
-    gtk_window_set_child(GTK_WINDOW(win), box);
+    gtk_widget_set_margin_top(box, 20);
+    gtk_widget_set_margin_bottom(box, 20);
+    school_dialog_set_child(win, box);
 
     char msg[256];
     snprintf(msg, sizeof(msg), "Are you sure you want to delete examination '%s'?\nAll scheduled subjects, marks, and rankings will be permanently removed.",
@@ -219,7 +216,7 @@ static void show_delete_exam_dialog(ExamsViewWidgets *evw, int exam_id, const ch
 
     GtkWidget *cancel = gtk_button_new_with_label("Cancel");
     gtk_widget_add_css_class(cancel, "btn-secondary");
-    g_signal_connect_swapped(cancel, "clicked", G_CALLBACK(gtk_window_destroy), win);
+    g_signal_connect_swapped(cancel, "clicked", G_CALLBACK(school_dialog_close), win);
     gtk_box_append(GTK_BOX(btn_box), cancel);
 
     GtkWidget *del = gtk_button_new_with_label("Delete Exam");
@@ -228,7 +225,8 @@ static void show_delete_exam_dialog(ExamsViewWidgets *evw, int exam_id, const ch
     gtk_box_append(GTK_BOX(btn_box), del);
 
     gtk_box_append(GTK_BOX(box), btn_box);
-    gtk_window_present(GTK_WINDOW(win));
+    g_object_set_data_full(G_OBJECT(win), "d", d, g_free);
+    school_dialog_present(win);
 }
 
 static void on_delete_exam_clicked(GtkButton *btn, gpointer user_data)
@@ -950,7 +948,7 @@ static void on_cancel_dialog(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     GtkWidget *w = GTK_WIDGET(user_data);
-    gtk_window_destroy(GTK_WINDOW(w));
+    school_dialog_close(w);
 }
 
 static void on_save_exam_dialog(GtkButton *btn, gpointer user_data)
@@ -985,8 +983,7 @@ static void on_save_exam_dialog(GtkButton *btn, gpointer user_data)
     }
 
     refresh_view(d->evw);
-    gtk_window_destroy(GTK_WINDOW(d->dialog));
-    g_free(d);
+    school_dialog_close(d->dialog);
 }
 
 static void show_add_exam_dialog(ExamsViewWidgets *evw)
@@ -994,18 +991,15 @@ static void show_add_exam_dialog(ExamsViewWidgets *evw)
     ExamDialogData *d = g_new0(ExamDialogData, 1);
     d->evw = evw;
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new("Create Examination", 460, 420);
     d->dialog = win;
-    gtk_window_set_title(GTK_WINDOW(win), "Create Examination");
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(win), 460, 420);
 
     GtkWidget *main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_start(main_box, 24);
     gtk_widget_set_margin_end(main_box, 24);
-    gtk_widget_set_margin_top(main_box, 24);
-    gtk_widget_set_margin_bottom(main_box, 24);
-    gtk_window_set_child(GTK_WINDOW(win), main_box);
+    gtk_widget_set_margin_top(main_box, 20);
+    gtk_widget_set_margin_bottom(main_box, 20);
+    school_dialog_set_child(win, main_box);
 
     GtkWidget *title_lbl = gtk_label_new("Configure New Examination");
     gtk_widget_add_css_class(title_lbl, "dashboard-card-title");
@@ -1070,7 +1064,8 @@ static void show_add_exam_dialog(ExamsViewWidgets *evw)
     gtk_box_append(GTK_BOX(btn_box), save_btn);
 
     gtk_box_append(GTK_BOX(main_box), btn_box);
-    gtk_window_present(GTK_WINDOW(win));
+    g_object_set_data_full(G_OBJECT(win), "d", d, g_free);
+    school_dialog_present(win);
 }
 
 /* 2. Schedule Subject to Exam Dialog */
@@ -1114,8 +1109,7 @@ static void on_save_sched_dialog(GtkButton *btn, gpointer user_data)
     }
 
     refresh_view(d->evw);
-    gtk_window_destroy(GTK_WINDOW(d->dialog));
-    g_free(d);
+    school_dialog_close(d->dialog);
 }
 
 static void show_schedule_subject_dialog(ExamsViewWidgets *evw, int exam_id)
@@ -1124,18 +1118,15 @@ static void show_schedule_subject_dialog(ExamsViewWidgets *evw, int exam_id)
     d->evw = evw;
     d->exam_id = exam_id;
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new("Schedule Subject to Exam", 460, 380);
     d->dialog = win;
-    gtk_window_set_title(GTK_WINDOW(win), "Schedule Subject to Exam");
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(win), 460, 380);
 
     GtkWidget *main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_start(main_box, 24);
     gtk_widget_set_margin_end(main_box, 24);
-    gtk_widget_set_margin_top(main_box, 24);
-    gtk_widget_set_margin_bottom(main_box, 24);
-    gtk_window_set_child(GTK_WINDOW(win), main_box);
+    gtk_widget_set_margin_top(main_box, 20);
+    gtk_widget_set_margin_bottom(main_box, 20);
+    school_dialog_set_child(win, main_box);
 
     GtkWidget *title_lbl = gtk_label_new("Schedule Subject");
     gtk_widget_add_css_class(title_lbl, "dashboard-card-title");
@@ -1207,7 +1198,8 @@ static void show_schedule_subject_dialog(ExamsViewWidgets *evw, int exam_id)
     gtk_box_append(GTK_BOX(btn_box), save_btn);
 
     gtk_box_append(GTK_BOX(main_box), btn_box);
-    gtk_window_present(GTK_WINDOW(win));
+    g_object_set_data_full(G_OBJECT(win), "d", d, g_free);
+    school_dialog_present(win);
 }
 
 /* 3. Printable Marksheet Dialog */
@@ -1215,20 +1207,14 @@ static void show_marksheet_dialog(const StudentReportCard *card)
 {
     if (!card) return;
 
-    GtkWidget *win = gtk_window_new();
-    gtk_window_set_title(GTK_WINDOW(win), "Official Student Report Card");
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(win), 560, 580);
-
-    GtkWidget *scrolled = gtk_scrolled_window_new();
-    gtk_window_set_child(GTK_WINDOW(win), scrolled);
+    GtkWidget *win = school_dialog_new("Official Student Report Card", 560, 580);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
-    gtk_widget_set_margin_start(box, 30);
-    gtk_widget_set_margin_end(box, 30);
-    gtk_widget_set_margin_top(box, 24);
-    gtk_widget_set_margin_bottom(box, 24);
-    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), box);
+    gtk_widget_set_margin_start(box, 28);
+    gtk_widget_set_margin_end(box, 28);
+    gtk_widget_set_margin_top(box, 20);
+    gtk_widget_set_margin_bottom(box, 20);
+    school_dialog_set_child(win, box);
 
     /* Institutional Header */
     GtkWidget *inst_title = gtk_label_new("ST. XAVIER INTERNATIONAL SCHOOL");
@@ -1381,7 +1367,7 @@ static void show_marksheet_dialog(const StudentReportCard *card)
     gtk_box_append(GTK_BOX(btn_box), close_btn);
 
     gtk_box_append(GTK_BOX(box), btn_box);
-    gtk_window_present(GTK_WINDOW(win));
+    school_dialog_present(win);
 }
 
 /* ── Main View Constructor ────────────────────────────────────────── */
