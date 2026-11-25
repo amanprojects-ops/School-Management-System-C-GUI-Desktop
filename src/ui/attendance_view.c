@@ -94,8 +94,9 @@ static void on_tab_daily_clicked(GtkButton *btn, gpointer user_data)
     gtk_widget_add_css_class(avw->tab_daily_btn, "tab-btn-active");
     gtk_widget_remove_css_class(avw->tab_monthly_btn, "tab-btn-active");
     gtk_widget_remove_css_class(avw->tab_analytics_btn, "tab-btn-active");
-    gtk_widget_set_visible(avw->quick_bar, TRUE);
-    gtk_widget_set_visible(avw->btn_save_attendance, TRUE);
+    gboolean can_edit = auth_current_user_can_access("ATTENDANCE", true);
+    gtk_widget_set_visible(avw->quick_bar, can_edit);
+    gtk_widget_set_visible(avw->btn_save_attendance, can_edit);
     refresh_view(avw);
 }
 
@@ -184,6 +185,7 @@ static void on_mark_all_present(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     AttendanceViewWidgets *avw = (AttendanceViewWidgets *)user_data;
+    if (!auth_current_user_can_access("ATTENDANCE", true)) return;
     for (int i = 0; i < avw->roster_count; i++) {
         if (avw->row_widgets[i].combo_status) {
             gtk_drop_down_set_selected(GTK_DROP_DOWN(avw->row_widgets[i].combo_status), 0); /* PRESENT */
@@ -195,6 +197,7 @@ static void on_mark_all_absent(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     AttendanceViewWidgets *avw = (AttendanceViewWidgets *)user_data;
+    if (!auth_current_user_can_access("ATTENDANCE", true)) return;
     for (int i = 0; i < avw->roster_count; i++) {
         if (avw->row_widgets[i].combo_status) {
             gtk_drop_down_set_selected(GTK_DROP_DOWN(avw->row_widgets[i].combo_status), 1); /* ABSENT */
@@ -207,6 +210,13 @@ static void on_save_attendance_clicked(GtkButton *btn, gpointer user_data)
     (void)btn;
     AttendanceViewWidgets *avw = (AttendanceViewWidgets *)user_data;
     if (!avw) return;
+    if (!auth_current_user_can_access("ATTENDANCE", true)) {
+        gtk_label_set_text(GTK_LABEL(avw->status_banner), "Read-only access: your role cannot modify attendance.");
+        gtk_widget_remove_css_class(avw->status_banner, "card-kpi-green");
+        gtk_widget_add_css_class(avw->status_banner, "card-kpi-red");
+        gtk_widget_set_visible(avw->status_banner, TRUE);
+        return;
+    }
 
     if (avw->selected_class_id <= 0) {
         gtk_label_set_text(GTK_LABEL(avw->status_banner), "Please select a valid class before saving attendance.");
@@ -490,6 +500,7 @@ static void render_daily_sheet(AttendanceViewWidgets *avw)
         gtk_box_append(GTK_BOX(row), sec_lbl);
 
         /* Status Dropdown */
+        gboolean can_edit = auth_current_user_can_access("ATTENDANCE", true);
         GtkWidget *combo = gtk_drop_down_new_from_strings(status_options);
         gtk_widget_set_size_request(combo, widths[4], -1);
 
@@ -498,12 +509,15 @@ static void render_daily_sheet(AttendanceViewWidgets *avw)
         else if (strcmp(r->status, ATTENDANCE_STATUS_LATE) == 0) sel_idx = 2;
         else if (strcmp(r->status, ATTENDANCE_STATUS_HALF_DAY) == 0) sel_idx = 3;
         gtk_drop_down_set_selected(GTK_DROP_DOWN(combo), sel_idx);
+        gtk_widget_set_sensitive(combo, can_edit);
         gtk_box_append(GTK_BOX(row), combo);
 
         /* Remarks Entry */
         GtkWidget *entry_rm = gtk_entry_new();
         gtk_widget_set_size_request(entry_rm, widths[5], -1);
         gtk_editable_set_text(GTK_EDITABLE(entry_rm), r->remarks);
+        gtk_editable_set_editable(GTK_EDITABLE(entry_rm), can_edit);
+        gtk_widget_set_sensitive(entry_rm, can_edit);
         gtk_box_append(GTK_BOX(row), entry_rm);
 
         /* Track widgets for bulk saving */
@@ -671,6 +685,14 @@ static void render_student_analytics(AttendanceViewWidgets *avw)
 
 static void refresh_view(AttendanceViewWidgets *avw)
 {
+    gboolean can_edit = auth_current_user_can_access("ATTENDANCE", true);
+    if (avw->quick_bar) {
+        gtk_widget_set_visible(avw->quick_bar, can_edit && avw->current_tab == TAB_DAILY);
+    }
+    if (avw->btn_save_attendance) {
+        gtk_widget_set_visible(avw->btn_save_attendance, can_edit && avw->current_tab == TAB_DAILY);
+    }
+
     /* Clear roster container */
     GtkWidget *c = gtk_widget_get_first_child(avw->roster_container);
     while (c) {
