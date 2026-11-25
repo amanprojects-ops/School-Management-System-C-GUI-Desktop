@@ -6,6 +6,7 @@
 #include "ui/teacher_view.h"
 #include "ui/dialog.h"
 #include "teacher.h"
+#include "auth/auth.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,6 +23,7 @@ typedef struct {
     GtkWidget *tab_teachers_btn;
     GtkWidget *tab_staff_btn;
     GtkWidget *table_container;
+    GtkWidget *add_btn;
     GtkWidget *status_banner;
     ActiveTab current_tab;
     char search_text[128];
@@ -99,6 +101,10 @@ static void on_add_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     TeacherViewWidgets *tvw = (TeacherViewWidgets *)user_data;
+    if (!auth_current_user_can_access("TEACHERS", true)) {
+        show_status_message(tvw, "Read-only access: your role cannot modify teachers or staff.", false);
+        return;
+    }
     if (tvw->current_tab == TAB_TEACHERS) {
         show_add_edit_teacher_dialog(tvw, 0);
     } else {
@@ -119,6 +125,10 @@ static void on_edit_item(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     TeacherViewWidgets *tvw = (TeacherViewWidgets *)g_object_get_data(G_OBJECT(btn), "tvw");
+    if (!auth_current_user_can_access("TEACHERS", true)) {
+        show_status_message(tvw, "Read-only access: your role cannot edit teachers or staff.", false);
+        return;
+    }
     int id = GPOINTER_TO_INT(user_data);
     if (tvw->current_tab == TAB_TEACHERS) show_add_edit_teacher_dialog(tvw, id);
     else show_add_edit_staff_dialog(tvw, id);
@@ -128,6 +138,10 @@ static void on_delete_item(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     TeacherViewWidgets *tvw = (TeacherViewWidgets *)g_object_get_data(G_OBJECT(btn), "tvw");
+    if (!auth_current_user_can_access("TEACHERS", true)) {
+        show_status_message(tvw, "Read-only access: your role cannot delete teachers or staff.", false);
+        return;
+    }
     int id = GPOINTER_TO_INT(user_data);
     const char *name = (const char *)g_object_get_data(G_OBJECT(btn), "item_name");
     show_delete_dialog(tvw, (tvw->current_tab == TAB_TEACHERS), id, name);
@@ -229,11 +243,14 @@ static void render_teachers_table(TeacherViewWidgets *tvw)
         g_signal_connect(v_btn, "clicked", G_CALLBACK(on_view_item), GINT_TO_POINTER(t->id));
         gtk_box_append(GTK_BOX(acts_box), v_btn);
 
+        gboolean can_edit = auth_current_user_can_access("TEACHERS", true);
+
         GtkWidget *e_btn = gtk_button_new_from_icon_name("document-edit-symbolic");
         gtk_button_set_has_frame(GTK_BUTTON(e_btn), FALSE);
         gtk_widget_add_css_class(e_btn, "btn-action-edit");
         g_object_set_data(G_OBJECT(e_btn), "tvw", tvw);
         g_signal_connect(e_btn, "clicked", G_CALLBACK(on_edit_item), GINT_TO_POINTER(t->id));
+        gtk_widget_set_visible(e_btn, can_edit);
         gtk_box_append(GTK_BOX(acts_box), e_btn);
 
         GtkWidget *d_btn = gtk_button_new_from_icon_name("user-trash-symbolic");
@@ -242,6 +259,7 @@ static void render_teachers_table(TeacherViewWidgets *tvw)
         g_object_set_data(G_OBJECT(d_btn), "tvw", tvw);
         g_object_set_data_full(G_OBJECT(d_btn), "item_name", g_strdup(t->full_name), g_free);
         g_signal_connect(d_btn, "clicked", G_CALLBACK(on_delete_item), GINT_TO_POINTER(t->id));
+        gtk_widget_set_visible(d_btn, can_edit);
         gtk_box_append(GTK_BOX(acts_box), d_btn);
 
         gtk_box_append(GTK_BOX(row), acts_box);
@@ -343,11 +361,14 @@ static void render_staff_table(TeacherViewWidgets *tvw)
         g_signal_connect(v_btn, "clicked", G_CALLBACK(on_view_item), GINT_TO_POINTER(s->id));
         gtk_box_append(GTK_BOX(acts_box), v_btn);
 
+        gboolean can_edit = auth_current_user_can_access("TEACHERS", true);
+
         GtkWidget *e_btn = gtk_button_new_from_icon_name("document-edit-symbolic");
         gtk_button_set_has_frame(GTK_BUTTON(e_btn), FALSE);
         gtk_widget_add_css_class(e_btn, "btn-action-edit");
         g_object_set_data(G_OBJECT(e_btn), "tvw", tvw);
         g_signal_connect(e_btn, "clicked", G_CALLBACK(on_edit_item), GINT_TO_POINTER(s->id));
+        gtk_widget_set_visible(e_btn, can_edit);
         gtk_box_append(GTK_BOX(acts_box), e_btn);
 
         GtkWidget *d_btn = gtk_button_new_from_icon_name("user-trash-symbolic");
@@ -356,6 +377,7 @@ static void render_staff_table(TeacherViewWidgets *tvw)
         g_object_set_data(G_OBJECT(d_btn), "tvw", tvw);
         g_object_set_data_full(G_OBJECT(d_btn), "item_name", g_strdup(s->full_name), g_free);
         g_signal_connect(d_btn, "clicked", G_CALLBACK(on_delete_item), GINT_TO_POINTER(s->id));
+        gtk_widget_set_visible(d_btn, can_edit);
         gtk_box_append(GTK_BOX(acts_box), d_btn);
 
         gtk_box_append(GTK_BOX(row), acts_box);
@@ -365,6 +387,10 @@ static void render_staff_table(TeacherViewWidgets *tvw)
 
 static void refresh_table(TeacherViewWidgets *tvw)
 {
+    if (tvw->add_btn) {
+        gtk_widget_set_visible(tvw->add_btn, auth_current_user_can_access("TEACHERS", true));
+    }
+
     /* Clear current container */
     GtkWidget *child = gtk_widget_get_first_child(tvw->table_container);
     while (child) {
@@ -891,6 +917,7 @@ GtkWidget *school_teacher_view_new(void)
     gtk_box_append(GTK_BOX(header_row), spacer);
 
     GtkWidget *add_btn = gtk_button_new_with_label("+ Add Member");
+    tvw->add_btn = add_btn;
     gtk_widget_add_css_class(add_btn, "btn-primary");
     g_signal_connect(add_btn, "clicked", G_CALLBACK(on_add_clicked), tvw);
     gtk_box_append(GTK_BOX(header_row), add_btn);
