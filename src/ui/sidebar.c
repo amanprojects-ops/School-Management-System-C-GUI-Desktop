@@ -15,6 +15,8 @@ typedef struct {
     NavPage     page;        /* Target page       */
 } SidebarItem;
 
+#include "auth/auth.h"
+
 static const SidebarItem sidebar_items[] = {
     { "view-grid-symbolic",           "Dashboard",   NAV_DASHBOARD  },
     { "system-users-symbolic",        "Students",    NAV_STUDENTS   },
@@ -148,5 +150,22 @@ void school_sidebar_set_active(int page_index)
         } else {
             gtk_widget_remove_css_class(nav_buttons[i], "sidebar-item-active");
         }
+    }
+}
+
+void school_sidebar_apply_permissions(void)
+{
+    gsize count = sizeof(sidebar_items) / sizeof(sidebar_items[0]);
+    for (gsize i = 0; i < count; i++) {
+        NavPage page = sidebar_items[i].page;
+        if (page < 0 || page >= NAV_PAGE_COUNT || nav_buttons[page] == NULL)
+            continue;
+
+        const char *mod = school_window_page_module(page);
+        gboolean visible = TRUE;
+        if (mod != NULL) {
+            visible = auth_is_logged_in() && auth_current_user_can_access(mod, false);
+        }
+        gtk_widget_set_visible(nav_buttons[page], visible);
     }
 }
