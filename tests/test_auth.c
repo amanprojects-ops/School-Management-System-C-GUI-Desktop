@@ -216,6 +216,18 @@ static void test_role_permissions(void)
     assert(auth_set_role_permission(ROLE_ADMIN, "SETTINGS", false, false));
     assert(auth_user_can_access(1, "SETTINGS", true) == true);
     printf("       Administrator role permissions remain unconditionally active -> PASS\n");
+
+    /* Session-level helper enforcement */
+    auth_logout();
+    assert(auth_current_user_can_access("STUDENTS", false) == false);
+    assert(auth_current_user_can_access("ATTENDANCE", true) == false);
+    assert(auth_login("teacher_ramesh", "TeacherPass@2026", NULL) == AUTH_SUCCESS);
+    assert(auth_current_user_can_access("ATTENDANCE", true) == true);
+    assert(auth_current_user_can_access("SETTINGS", false) == false);
+    assert(auth_current_user_can_access("FEES", false) == true);
+    assert(auth_current_user_can_access("FEES", true) == false);
+    auth_logout();
+    printf("       Active session permission checks (view vs edit) -> PASS\n");
 }
 
 int main(void)
