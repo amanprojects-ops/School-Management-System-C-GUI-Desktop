@@ -4,6 +4,7 @@
  */
 
 #include "ui/classes_view.h"
+#include "ui/dialog.h"
 #include "classes.h"
 #include "teacher.h"
 #include <stdio.h>
@@ -581,15 +582,14 @@ static void on_save_class_dialog(GtkButton *btn, gpointer user_data)
     }
 
     refresh_view(d->cvw);
-    gtk_window_destroy(GTK_WINDOW(d->dialog));
-    g_free(d);
+    school_dialog_close(d->dialog);
 }
 
 static void on_cancel_dialog(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     GtkWidget *dialog = GTK_WIDGET(user_data);
-    gtk_window_destroy(GTK_WINDOW(dialog));
+    school_dialog_close(dialog);
 }
 
 static void show_add_edit_class_dialog(ClassesViewWidgets *cvw, int class_id)
@@ -601,18 +601,15 @@ static void show_add_edit_class_dialog(ClassesViewWidgets *cvw, int class_id)
     SchoolClass existing;
     bool is_edit = (class_id > 0 && class_service_get_by_id(class_id, &existing));
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new(is_edit ? "Edit Class" : "Add New Class", 460, 400);
     d->dialog = win;
-    gtk_window_set_title(GTK_WINDOW(win), is_edit ? "Edit Class" : "Add New Class");
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(win), 460, 400);
 
     GtkWidget *main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_start(main_box, 24);
     gtk_widget_set_margin_end(main_box, 24);
-    gtk_widget_set_margin_top(main_box, 24);
-    gtk_widget_set_margin_bottom(main_box, 24);
-    gtk_window_set_child(GTK_WINDOW(win), main_box);
+    gtk_widget_set_margin_top(main_box, 20);
+    gtk_widget_set_margin_bottom(main_box, 20);
+    school_dialog_set_child(win, main_box);
 
     GtkWidget *title_lbl = gtk_label_new(is_edit ? "Edit Class Details" : "Create New Class");
     gtk_widget_add_css_class(title_lbl, "dashboard-card-title");
@@ -696,7 +693,8 @@ static void show_add_edit_class_dialog(ClassesViewWidgets *cvw, int class_id)
     gtk_box_append(GTK_BOX(btn_box), save_btn);
 
     gtk_box_append(GTK_BOX(main_box), btn_box);
-    gtk_window_present(GTK_WINDOW(win));
+    g_object_set_data_full(G_OBJECT(win), "d", d, g_free);
+    school_dialog_present(win);
 }
 
 /* 2. Add / Edit Section Dialog */
@@ -752,8 +750,7 @@ static void on_save_section_dialog(GtkButton *btn, gpointer user_data)
     }
 
     refresh_view(d->cvw);
-    gtk_window_destroy(GTK_WINDOW(d->dialog));
-    g_free(d);
+    school_dialog_close(d->dialog);
 }
 
 static void show_add_edit_section_dialog(ClassesViewWidgets *cvw, int class_id, int section_id)
@@ -780,18 +777,15 @@ static void show_add_edit_section_dialog(ClassesViewWidgets *cvw, int class_id, 
         }
     }
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new(is_edit ? "Edit Section" : "Add Section", 460, 360);
     d->dialog = win;
-    gtk_window_set_title(GTK_WINDOW(win), is_edit ? "Edit Section" : "Add Section");
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(win), 460, 360);
 
     GtkWidget *main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_start(main_box, 24);
     gtk_widget_set_margin_end(main_box, 24);
-    gtk_widget_set_margin_top(main_box, 24);
-    gtk_widget_set_margin_bottom(main_box, 24);
-    gtk_window_set_child(GTK_WINDOW(win), main_box);
+    gtk_widget_set_margin_top(main_box, 20);
+    gtk_widget_set_margin_bottom(main_box, 20);
+    school_dialog_set_child(win, main_box);
 
     GtkWidget *title_lbl = gtk_label_new(is_edit ? "Edit Section Details" : "Create New Section");
     gtk_widget_add_css_class(title_lbl, "dashboard-card-title");
@@ -880,7 +874,8 @@ static void show_add_edit_section_dialog(ClassesViewWidgets *cvw, int class_id, 
     gtk_box_append(GTK_BOX(btn_box), save_btn);
 
     gtk_box_append(GTK_BOX(main_box), btn_box);
-    gtk_window_present(GTK_WINDOW(win));
+    g_object_set_data_full(G_OBJECT(win), "d", d, g_free);
+    school_dialog_present(win);
 }
 
 /* 3. Add / Edit Subject Dialog */
@@ -940,8 +935,7 @@ static void on_save_subject_dialog(GtkButton *btn, gpointer user_data)
     }
 
     refresh_view(d->cvw);
-    gtk_window_destroy(GTK_WINDOW(d->dialog));
-    g_free(d);
+    school_dialog_close(d->dialog);
 }
 
 static void show_add_edit_subject_dialog(ClassesViewWidgets *cvw, int subject_id)
@@ -968,18 +962,15 @@ static void show_add_edit_subject_dialog(ClassesViewWidgets *cvw, int subject_id
         }
     }
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new(is_edit ? "Edit Subject" : "Add Subject", 460, 420);
     d->dialog = win;
-    gtk_window_set_title(GTK_WINDOW(win), is_edit ? "Edit Subject" : "Add Subject");
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(win), 460, 420);
 
     GtkWidget *main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_start(main_box, 24);
     gtk_widget_set_margin_end(main_box, 24);
-    gtk_widget_set_margin_top(main_box, 24);
-    gtk_widget_set_margin_bottom(main_box, 24);
-    gtk_window_set_child(GTK_WINDOW(win), main_box);
+    gtk_widget_set_margin_top(main_box, 20);
+    gtk_widget_set_margin_bottom(main_box, 20);
+    school_dialog_set_child(win, main_box);
 
     GtkWidget *title_lbl = gtk_label_new(is_edit ? "Edit Subject Details" : "Create New Subject");
     gtk_widget_add_css_class(title_lbl, "dashboard-card-title");
@@ -1074,7 +1065,8 @@ static void show_add_edit_subject_dialog(ClassesViewWidgets *cvw, int subject_id
     gtk_box_append(GTK_BOX(btn_box), save_btn);
 
     gtk_box_append(GTK_BOX(main_box), btn_box);
-    gtk_window_present(GTK_WINDOW(win));
+    g_object_set_data_full(G_OBJECT(win), "d", d, g_free);
+    school_dialog_present(win);
 }
 
 /* 4. Add Academic Year Dialog */
@@ -1106,11 +1098,14 @@ static void on_save_ay_dialog(GtkButton *btn, gpointer user_data)
     ay.is_current = gtk_check_button_get_active(GTK_CHECK_BUTTON(d->chk_current));
 
     int new_id = 0;
-    academic_year_create(&ay, &new_id);
+    if (academic_year_create(&ay, &new_id)) {
+        show_status_message(d->cvw, "Academic year added successfully.", true);
+    } else {
+        show_status_message(d->cvw, "Failed to add academic year.", false);
+    }
 
     refresh_view(d->cvw);
-    gtk_window_destroy(GTK_WINDOW(d->dialog));
-    g_free(d);
+    school_dialog_close(d->dialog);
 }
 
 static void show_add_academic_year_dialog(ClassesViewWidgets *cvw)
@@ -1118,18 +1113,15 @@ static void show_add_academic_year_dialog(ClassesViewWidgets *cvw)
     AcademicYearDialogData *d = g_new0(AcademicYearDialogData, 1);
     d->cvw = cvw;
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new("Add Academic Year", 440, 360);
     d->dialog = win;
-    gtk_window_set_title(GTK_WINDOW(win), "Add Academic Year");
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(win), 440, 360);
 
     GtkWidget *main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_start(main_box, 24);
     gtk_widget_set_margin_end(main_box, 24);
-    gtk_widget_set_margin_top(main_box, 24);
-    gtk_widget_set_margin_bottom(main_box, 24);
-    gtk_window_set_child(GTK_WINDOW(win), main_box);
+    gtk_widget_set_margin_top(main_box, 20);
+    gtk_widget_set_margin_bottom(main_box, 20);
+    school_dialog_set_child(win, main_box);
 
     GtkWidget *title_lbl = gtk_label_new("New Academic Year");
     gtk_widget_add_css_class(title_lbl, "dashboard-card-title");
@@ -1182,7 +1174,8 @@ static void show_add_academic_year_dialog(ClassesViewWidgets *cvw)
     gtk_box_append(GTK_BOX(btn_box), save_btn);
 
     gtk_box_append(GTK_BOX(main_box), btn_box);
-    gtk_window_present(GTK_WINDOW(win));
+    g_object_set_data_full(G_OBJECT(win), "d", d, g_free);
+    school_dialog_present(win);
 }
 
 /* 5. Delete Dialogs */
@@ -1217,8 +1210,7 @@ static void on_confirm_delete(GtkButton *btn, gpointer user_data)
         }
     }
     refresh_view(d->cvw);
-    gtk_window_destroy(GTK_WINDOW(d->dialog));
-    g_free(d);
+    school_dialog_close(d->dialog);
 }
 
 static void show_delete_class_dialog(ClassesViewWidgets *cvw, int class_id, const char *name)
@@ -1228,18 +1220,15 @@ static void show_delete_class_dialog(ClassesViewWidgets *cvw, int class_id, cons
     d->id = class_id;
     d->type = 0;
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new("Confirm Class Deletion", 400, 200);
     d->dialog = win;
-    gtk_window_set_title(GTK_WINDOW(win), "Confirm Class Deletion");
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(win), 400, 200);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_start(box, 24);
     gtk_widget_set_margin_end(box, 24);
-    gtk_widget_set_margin_top(box, 24);
-    gtk_widget_set_margin_bottom(box, 24);
-    gtk_window_set_child(GTK_WINDOW(win), box);
+    gtk_widget_set_margin_top(box, 20);
+    gtk_widget_set_margin_bottom(box, 20);
+    school_dialog_set_child(win, box);
 
     char msg[256];
     snprintf(msg, sizeof(msg), "Are you sure you want to delete '%s'?\nAll associated sections and subjects may be affected.", name);
@@ -1261,7 +1250,8 @@ static void show_delete_class_dialog(ClassesViewWidgets *cvw, int class_id, cons
     gtk_box_append(GTK_BOX(btn_box), confirm);
 
     gtk_box_append(GTK_BOX(box), btn_box);
-    gtk_window_present(GTK_WINDOW(win));
+    g_object_set_data_full(G_OBJECT(win), "d", d, g_free);
+    school_dialog_present(win);
 }
 
 static void show_delete_section_dialog(ClassesViewWidgets *cvw, int section_id, const char *name)
@@ -1271,18 +1261,15 @@ static void show_delete_section_dialog(ClassesViewWidgets *cvw, int section_id, 
     d->id = section_id;
     d->type = 1;
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new("Confirm Section Deletion", 400, 180);
     d->dialog = win;
-    gtk_window_set_title(GTK_WINDOW(win), "Confirm Section Deletion");
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(win), 400, 180);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_start(box, 24);
     gtk_widget_set_margin_end(box, 24);
-    gtk_widget_set_margin_top(box, 24);
-    gtk_widget_set_margin_bottom(box, 24);
-    gtk_window_set_child(GTK_WINDOW(win), box);
+    gtk_widget_set_margin_top(box, 20);
+    gtk_widget_set_margin_bottom(box, 20);
+    school_dialog_set_child(win, box);
 
     char msg[256];
     snprintf(msg, sizeof(msg), "Are you sure you want to delete section '%s'?", name);
@@ -1304,7 +1291,8 @@ static void show_delete_section_dialog(ClassesViewWidgets *cvw, int section_id, 
     gtk_box_append(GTK_BOX(btn_box), confirm);
 
     gtk_box_append(GTK_BOX(box), btn_box);
-    gtk_window_present(GTK_WINDOW(win));
+    g_object_set_data_full(G_OBJECT(win), "d", d, g_free);
+    school_dialog_present(win);
 }
 
 static void show_delete_subject_dialog(ClassesViewWidgets *cvw, int subject_id, const char *name)
@@ -1314,18 +1302,15 @@ static void show_delete_subject_dialog(ClassesViewWidgets *cvw, int subject_id, 
     d->id = subject_id;
     d->type = 2;
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new("Confirm Subject Deletion", 400, 180);
     d->dialog = win;
-    gtk_window_set_title(GTK_WINDOW(win), "Confirm Subject Deletion");
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(win), 400, 180);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_start(box, 24);
     gtk_widget_set_margin_end(box, 24);
-    gtk_widget_set_margin_top(box, 24);
-    gtk_widget_set_margin_bottom(box, 24);
-    gtk_window_set_child(GTK_WINDOW(win), box);
+    gtk_widget_set_margin_top(box, 20);
+    gtk_widget_set_margin_bottom(box, 20);
+    school_dialog_set_child(win, box);
 
     char msg[256];
     snprintf(msg, sizeof(msg), "Are you sure you want to delete subject '%s'?", name);
@@ -1347,7 +1332,8 @@ static void show_delete_subject_dialog(ClassesViewWidgets *cvw, int subject_id, 
     gtk_box_append(GTK_BOX(btn_box), confirm);
 
     gtk_box_append(GTK_BOX(box), btn_box);
-    gtk_window_present(GTK_WINDOW(win));
+    g_object_set_data_full(G_OBJECT(win), "d", d, g_free);
+    school_dialog_present(win);
 }
 
 /* ── Main View Constructor ────────────────────────────────────────── */
