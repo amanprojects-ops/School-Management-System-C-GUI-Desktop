@@ -7,6 +7,7 @@
 #include "ui/dialog.h"
 #include "classes.h"
 #include "teacher.h"
+#include "auth/auth.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -96,6 +97,10 @@ static void on_add_primary_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     ClassesViewWidgets *cvw = (ClassesViewWidgets *)user_data;
+    if (!auth_current_user_can_access("CLASSES", true)) {
+        show_status_message(cvw, "Read-only access: your role cannot modify classes or subjects.", false);
+        return;
+    }
     if (cvw->current_tab == TAB_CLASSES) {
         show_add_edit_class_dialog(cvw, 0);
     } else if (cvw->current_tab == TAB_SUBJECTS) {
@@ -110,6 +115,10 @@ static void on_add_primary_clicked(GtkButton *btn, gpointer user_data)
 static void on_edit_class_clicked(GtkButton *btn, gpointer user_data)
 {
     ClassesViewWidgets *cvw = (ClassesViewWidgets *)g_object_get_data(G_OBJECT(btn), "cvw");
+    if (!auth_current_user_can_access("CLASSES", true)) {
+        show_status_message(cvw, "Read-only access: cannot edit classes.", false);
+        return;
+    }
     int class_id = GPOINTER_TO_INT(user_data);
     show_add_edit_class_dialog(cvw, class_id);
 }
@@ -117,6 +126,10 @@ static void on_edit_class_clicked(GtkButton *btn, gpointer user_data)
 static void on_delete_class_clicked(GtkButton *btn, gpointer user_data)
 {
     ClassesViewWidgets *cvw = (ClassesViewWidgets *)g_object_get_data(G_OBJECT(btn), "cvw");
+    if (!auth_current_user_can_access("CLASSES", true)) {
+        show_status_message(cvw, "Read-only access: cannot delete classes.", false);
+        return;
+    }
     int class_id = GPOINTER_TO_INT(user_data);
     const char *name = (const char *)g_object_get_data(G_OBJECT(btn), "class_name");
     show_delete_class_dialog(cvw, class_id, name ? name : "Class");
@@ -125,6 +138,10 @@ static void on_delete_class_clicked(GtkButton *btn, gpointer user_data)
 static void on_add_section_for_class_clicked(GtkButton *btn, gpointer user_data)
 {
     ClassesViewWidgets *cvw = (ClassesViewWidgets *)g_object_get_data(G_OBJECT(btn), "cvw");
+    if (!auth_current_user_can_access("CLASSES", true)) {
+        show_status_message(cvw, "Read-only access: cannot add sections.", false);
+        return;
+    }
     int class_id = GPOINTER_TO_INT(user_data);
     show_add_edit_section_dialog(cvw, class_id, 0);
 }
@@ -132,6 +149,10 @@ static void on_add_section_for_class_clicked(GtkButton *btn, gpointer user_data)
 static void on_edit_section_clicked(GtkButton *btn, gpointer user_data)
 {
     ClassesViewWidgets *cvw = (ClassesViewWidgets *)g_object_get_data(G_OBJECT(btn), "cvw");
+    if (!auth_current_user_can_access("CLASSES", true)) {
+        show_status_message(cvw, "Read-only access: cannot edit sections.", false);
+        return;
+    }
     int section_id = GPOINTER_TO_INT(user_data);
     show_add_edit_section_dialog(cvw, 0, section_id);
 }
@@ -139,6 +160,10 @@ static void on_edit_section_clicked(GtkButton *btn, gpointer user_data)
 static void on_delete_section_clicked(GtkButton *btn, gpointer user_data)
 {
     ClassesViewWidgets *cvw = (ClassesViewWidgets *)g_object_get_data(G_OBJECT(btn), "cvw");
+    if (!auth_current_user_can_access("CLASSES", true)) {
+        show_status_message(cvw, "Read-only access: cannot delete sections.", false);
+        return;
+    }
     int section_id = GPOINTER_TO_INT(user_data);
     const char *name = (const char *)g_object_get_data(G_OBJECT(btn), "sec_name");
     show_delete_section_dialog(cvw, section_id, name ? name : "Section");
@@ -147,6 +172,10 @@ static void on_delete_section_clicked(GtkButton *btn, gpointer user_data)
 static void on_edit_subject_clicked(GtkButton *btn, gpointer user_data)
 {
     ClassesViewWidgets *cvw = (ClassesViewWidgets *)g_object_get_data(G_OBJECT(btn), "cvw");
+    if (!auth_current_user_can_access("CLASSES", true)) {
+        show_status_message(cvw, "Read-only access: cannot edit subjects.", false);
+        return;
+    }
     int subject_id = GPOINTER_TO_INT(user_data);
     show_add_edit_subject_dialog(cvw, subject_id);
 }
@@ -154,6 +183,10 @@ static void on_edit_subject_clicked(GtkButton *btn, gpointer user_data)
 static void on_delete_subject_clicked(GtkButton *btn, gpointer user_data)
 {
     ClassesViewWidgets *cvw = (ClassesViewWidgets *)g_object_get_data(G_OBJECT(btn), "cvw");
+    if (!auth_current_user_can_access("CLASSES", true)) {
+        show_status_message(cvw, "Read-only access: cannot delete subjects.", false);
+        return;
+    }
     int subject_id = GPOINTER_TO_INT(user_data);
     const char *name = (const char *)g_object_get_data(G_OBJECT(btn), "sub_name");
     show_delete_subject_dialog(cvw, subject_id, name ? name : "Subject");
@@ -162,6 +195,10 @@ static void on_delete_subject_clicked(GtkButton *btn, gpointer user_data)
 static void on_set_current_ay_clicked(GtkButton *btn, gpointer user_data)
 {
     ClassesViewWidgets *cvw = (ClassesViewWidgets *)g_object_get_data(G_OBJECT(btn), "cvw");
+    if (!auth_current_user_can_access("CLASSES", true)) {
+        show_status_message(cvw, "Read-only access: cannot change active academic year.", false);
+        return;
+    }
     int ay_id = GPOINTER_TO_INT(user_data);
     academic_year_set_current(ay_id);
     refresh_view(cvw);
@@ -193,6 +230,8 @@ static void render_classes_tab(ClassesViewWidgets *cvw)
         gtk_box_append(GTK_BOX(cvw->content_container), empty_box);
         return;
     }
+
+    bool can_edit = auth_current_user_can_access("CLASSES", true);
 
     for (int i = 0; i < class_count; i++) {
         const SchoolClass *c = &classes[i];
@@ -234,12 +273,14 @@ static void render_classes_tab(ClassesViewWidgets *cvw)
         gtk_widget_add_css_class(add_sec_btn, "btn-secondary");
         g_object_set_data(G_OBJECT(add_sec_btn), "cvw", cvw);
         g_signal_connect(add_sec_btn, "clicked", G_CALLBACK(on_add_section_for_class_clicked), GINT_TO_POINTER(c->id));
+        gtk_widget_set_visible(add_sec_btn, can_edit);
         gtk_box_append(GTK_BOX(card_header), add_sec_btn);
 
         GtkWidget *edit_btn = gtk_button_new_with_label("Edit");
         gtk_widget_add_css_class(edit_btn, "btn-secondary");
         g_object_set_data(G_OBJECT(edit_btn), "cvw", cvw);
         g_signal_connect(edit_btn, "clicked", G_CALLBACK(on_edit_class_clicked), GINT_TO_POINTER(c->id));
+        gtk_widget_set_visible(edit_btn, can_edit);
         gtk_box_append(GTK_BOX(card_header), edit_btn);
 
         GtkWidget *del_btn = gtk_button_new_with_label("Delete");
@@ -247,6 +288,7 @@ static void render_classes_tab(ClassesViewWidgets *cvw)
         g_object_set_data(G_OBJECT(del_btn), "cvw", cvw);
         g_object_set_data_full(G_OBJECT(del_btn), "class_name", g_strdup(c->name), g_free);
         g_signal_connect(del_btn, "clicked", G_CALLBACK(on_delete_class_clicked), GINT_TO_POINTER(c->id));
+        gtk_widget_set_visible(del_btn, can_edit);
         gtk_box_append(GTK_BOX(card_header), del_btn);
 
         gtk_box_append(GTK_BOX(card), card_header);
@@ -301,6 +343,7 @@ static void render_classes_tab(ClassesViewWidgets *cvw)
                 gtk_widget_add_css_class(sec_edit, "btn-secondary");
                 g_object_set_data(G_OBJECT(sec_edit), "cvw", cvw);
                 g_signal_connect(sec_edit, "clicked", G_CALLBACK(on_edit_section_clicked), GINT_TO_POINTER(sec->id));
+                gtk_widget_set_visible(sec_edit, can_edit);
                 gtk_box_append(GTK_BOX(sec_row), sec_edit);
 
                 GtkWidget *sec_del = gtk_button_new_with_label("Delete");
@@ -308,6 +351,7 @@ static void render_classes_tab(ClassesViewWidgets *cvw)
                 g_object_set_data(G_OBJECT(sec_del), "cvw", cvw);
                 g_object_set_data_full(G_OBJECT(sec_del), "sec_name", g_strdup(sec->name), g_free);
                 g_signal_connect(sec_del, "clicked", G_CALLBACK(on_delete_section_clicked), GINT_TO_POINTER(sec->id));
+                gtk_widget_set_visible(sec_del, can_edit);
                 gtk_box_append(GTK_BOX(sec_row), sec_del);
 
                 gtk_box_append(GTK_BOX(sec_box), sec_row);
@@ -361,6 +405,8 @@ static void render_subjects_tab(ClassesViewWidgets *cvw)
         return;
     }
 
+    bool can_edit = auth_current_user_can_access("CLASSES", true);
+
     for (int i = 0; i < sub_count; i++) {
         const Subject *sub = &subjects[i];
         GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
@@ -400,6 +446,7 @@ static void render_subjects_tab(ClassesViewWidgets *cvw)
         gtk_widget_add_css_class(edit_btn, "btn-secondary");
         g_object_set_data(G_OBJECT(edit_btn), "cvw", cvw);
         g_signal_connect(edit_btn, "clicked", G_CALLBACK(on_edit_subject_clicked), GINT_TO_POINTER(sub->id));
+        gtk_widget_set_visible(edit_btn, can_edit);
         gtk_box_append(GTK_BOX(act_box), edit_btn);
 
         GtkWidget *del_btn = gtk_button_new_with_label("Delete");
@@ -407,6 +454,7 @@ static void render_subjects_tab(ClassesViewWidgets *cvw)
         g_object_set_data(G_OBJECT(del_btn), "cvw", cvw);
         g_object_set_data_full(G_OBJECT(del_btn), "sub_name", g_strdup(sub->name), g_free);
         g_signal_connect(del_btn, "clicked", G_CALLBACK(on_delete_subject_clicked), GINT_TO_POINTER(sub->id));
+        gtk_widget_set_visible(del_btn, can_edit);
         gtk_box_append(GTK_BOX(act_box), del_btn);
 
         gtk_box_append(GTK_BOX(row), act_box);
@@ -454,6 +502,8 @@ static void render_ay_tab(ClassesViewWidgets *cvw)
         return;
     }
 
+    bool can_edit = auth_current_user_can_access("CLASSES", true);
+
     for (int i = 0; i < ay_count; i++) {
         const AcademicYear *ay = &years[i];
         GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
@@ -493,11 +543,17 @@ static void render_ay_tab(ClassesViewWidgets *cvw)
         gtk_widget_set_size_request(act_box, widths[4], -1);
 
         if (!ay->is_current) {
-            GtkWidget *set_btn = gtk_button_new_with_label("Set as Current");
-            gtk_widget_add_css_class(set_btn, "btn-secondary");
-            g_object_set_data(G_OBJECT(set_btn), "cvw", cvw);
-            g_signal_connect(set_btn, "clicked", G_CALLBACK(on_set_current_ay_clicked), GINT_TO_POINTER(ay->id));
-            gtk_box_append(GTK_BOX(act_box), set_btn);
+            if (can_edit) {
+                GtkWidget *set_btn = gtk_button_new_with_label("Set as Current");
+                gtk_widget_add_css_class(set_btn, "btn-secondary");
+                g_object_set_data(G_OBJECT(set_btn), "cvw", cvw);
+                g_signal_connect(set_btn, "clicked", G_CALLBACK(on_set_current_ay_clicked), GINT_TO_POINTER(ay->id));
+                gtk_box_append(GTK_BOX(act_box), set_btn);
+            } else {
+                GtkWidget *ro_lbl = gtk_label_new("—");
+                gtk_widget_add_css_class(ro_lbl, "dim-label");
+                gtk_box_append(GTK_BOX(act_box), ro_lbl);
+            }
         } else {
             GtkWidget *active_lbl = gtk_label_new("Active Year");
             gtk_widget_add_css_class(active_lbl, "dim-label");
@@ -511,6 +567,10 @@ static void render_ay_tab(ClassesViewWidgets *cvw)
 
 static void refresh_view(ClassesViewWidgets *cvw)
 {
+    if (cvw->add_btn) {
+        gtk_widget_set_visible(cvw->add_btn, auth_current_user_can_access("CLASSES", true));
+    }
+
     /* Clear container */
     GtkWidget *child = gtk_widget_get_first_child(cvw->content_container);
     while (child) {
@@ -660,6 +720,7 @@ static void show_add_edit_class_dialog(ClassesViewWidgets *cvw, int class_id)
 
     const char *ay_names[MAX_ACADEMIC_YEARS + 1];
     int default_ay_idx = 0;
+
     for (int i = 0; i < ay_count; i++) {
         ay_names[i] = years[i].name;
         d->ay_ids[i] = years[i].id;
@@ -1008,6 +1069,7 @@ static void show_add_edit_subject_dialog(ClassesViewWidgets *cvw, int subject_id
 
     const char *class_names[MAX_CLASSES + 1];
     int sel_cls_idx = 0;
+
     for (int i = 0; i < class_count; i++) {
         class_names[i] = classes[i].name;
         d->class_ids[i] = classes[i].id;
