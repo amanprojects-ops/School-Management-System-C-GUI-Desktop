@@ -723,3 +723,11 @@ bool auth_user_can_access(int user_id, const char *module_name, bool require_edi
     sqlite3_finalize(stmt);
     return allowed;
 }
+
+bool auth_current_user_can_access(const char *module_name, bool require_edit)
+{
+    if (!s_current_session.is_authenticated || s_current_session.user_id <= 0) {
+        return false;
+    }
+    return auth_user_can_access(s_current_session.user_id, module_name, require_edit);
+}
