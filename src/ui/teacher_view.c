@@ -4,6 +4,7 @@
  */
 
 #include "ui/teacher_view.h"
+#include "ui/dialog.h"
 #include "teacher.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -428,7 +429,7 @@ static void on_save_teacher(GtkButton *btn, gpointer user_data)
     }
 
     refresh_table(sfd->tvw);
-    gtk_window_destroy(GTK_WINDOW(sfd->dialog));
+    school_dialog_close(sfd->dialog);
 }
 
 static void show_add_edit_teacher_dialog(TeacherViewWidgets *tvw, int teacher_id)
@@ -437,11 +438,8 @@ static void show_add_edit_teacher_dialog(TeacherViewWidgets *tvw, int teacher_id
     sfd->tvw = tvw;
     sfd->id = teacher_id;
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new((teacher_id > 0) ? "Edit Faculty Teacher" : "Add Faculty Teacher", 460, 520);
     sfd->dialog = win;
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_title(GTK_WINDOW(win), (teacher_id > 0) ? "Edit Faculty Teacher" : "Add Faculty Teacher");
-    gtk_window_set_default_size(GTK_WINDOW(win), 460, 520);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
     gtk_widget_set_margin_top(box, 20);
@@ -520,9 +518,9 @@ static void show_add_edit_teacher_dialog(TeacherViewWidgets *tvw, int teacher_id
     g_signal_connect(save_btn, "clicked", G_CALLBACK(on_save_teacher), sfd);
     gtk_box_append(GTK_BOX(box), save_btn);
 
-    gtk_window_set_child(GTK_WINDOW(win), box);
+    school_dialog_set_child(win, box);
     g_object_set_data_full(G_OBJECT(win), "sfd", sfd, g_free);
-    gtk_window_present(GTK_WINDOW(win));
+    school_dialog_present(win);
 }
 
 static void on_save_staff(GtkButton *btn, gpointer user_data)
@@ -560,7 +558,7 @@ static void on_save_staff(GtkButton *btn, gpointer user_data)
     }
 
     refresh_table(sfd->tvw);
-    gtk_window_destroy(GTK_WINDOW(sfd->dialog));
+    school_dialog_close(sfd->dialog);
 }
 
 static void show_add_edit_staff_dialog(TeacherViewWidgets *tvw, int staff_id)
@@ -569,11 +567,8 @@ static void show_add_edit_staff_dialog(TeacherViewWidgets *tvw, int staff_id)
     sfd->tvw = tvw;
     sfd->id = staff_id;
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new((staff_id > 0) ? "Edit Support Staff" : "Add Support Staff", 460, 480);
     sfd->dialog = win;
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_title(GTK_WINDOW(win), (staff_id > 0) ? "Edit Support Staff" : "Add Support Staff");
-    gtk_window_set_default_size(GTK_WINDOW(win), 460, 480);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
     gtk_widget_set_margin_top(box, 20);
@@ -645,9 +640,9 @@ static void show_add_edit_staff_dialog(TeacherViewWidgets *tvw, int staff_id)
     g_signal_connect(save_btn, "clicked", G_CALLBACK(on_save_staff), sfd);
     gtk_box_append(GTK_BOX(box), save_btn);
 
-    gtk_window_set_child(GTK_WINDOW(win), box);
+    school_dialog_set_child(win, box);
     g_object_set_data_full(G_OBJECT(win), "sfd", sfd, g_free);
-    gtk_window_present(GTK_WINDOW(win));
+    school_dialog_present(win);
 }
 
 static void show_teacher_profile(int teacher_id)
@@ -655,14 +650,11 @@ static void show_teacher_profile(int teacher_id)
     Teacher t;
     if (!teacher_service_get_by_id(teacher_id, &t)) return;
 
-    GtkWidget *win = gtk_window_new();
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_title(GTK_WINDOW(win), "Faculty Teacher Profile");
-    gtk_window_set_default_size(GTK_WINDOW(win), 440, 420);
+    GtkWidget *win = school_dialog_new("Faculty Teacher Profile", 440, 420);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 14);
-    gtk_widget_set_margin_top(box, 24);
-    gtk_widget_set_margin_bottom(box, 24);
+    gtk_widget_set_margin_top(box, 20);
+    gtk_widget_set_margin_bottom(box, 20);
     gtk_widget_set_margin_start(box, 28);
     gtk_widget_set_margin_end(box, 28);
 
@@ -698,13 +690,23 @@ static void show_teacher_profile(int teacher_id)
 
         GtkWidget *v = gtk_label_new(vals[i]);
         gtk_label_set_xalign(GTK_LABEL(v), 0.0f);
+        gtk_label_set_wrap(GTK_LABEL(v), TRUE);
         gtk_widget_set_hexpand(v, TRUE);
         gtk_box_append(GTK_BOX(row), v);
         gtk_box_append(GTK_BOX(box), row);
     }
 
-    gtk_window_set_child(GTK_WINDOW(win), box);
-    gtk_window_present(GTK_WINDOW(win));
+    GtkWidget *btn_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+    gtk_widget_set_halign(btn_row, GTK_ALIGN_END);
+    gtk_widget_set_margin_top(btn_row, 8);
+    GtkWidget *close_btn = gtk_button_new_with_label("Close");
+    gtk_widget_add_css_class(close_btn, "btn-secondary");
+    g_signal_connect_swapped(close_btn, "clicked", G_CALLBACK(school_dialog_close), win);
+    gtk_box_append(GTK_BOX(btn_row), close_btn);
+    gtk_box_append(GTK_BOX(box), btn_row);
+
+    school_dialog_set_child(win, box);
+    school_dialog_present(win);
 }
 
 static void show_staff_profile(int staff_id)
@@ -712,14 +714,11 @@ static void show_staff_profile(int staff_id)
     Staff s;
     if (!staff_service_get_by_id(staff_id, &s)) return;
 
-    GtkWidget *win = gtk_window_new();
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_title(GTK_WINDOW(win), "Support Staff Profile");
-    gtk_window_set_default_size(GTK_WINDOW(win), 440, 420);
+    GtkWidget *win = school_dialog_new("Support Staff Profile", 440, 420);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 14);
-    gtk_widget_set_margin_top(box, 24);
-    gtk_widget_set_margin_bottom(box, 24);
+    gtk_widget_set_margin_top(box, 20);
+    gtk_widget_set_margin_bottom(box, 20);
     gtk_widget_set_margin_start(box, 28);
     gtk_widget_set_margin_end(box, 28);
 
@@ -755,13 +754,23 @@ static void show_staff_profile(int staff_id)
 
         GtkWidget *v = gtk_label_new(vals[i]);
         gtk_label_set_xalign(GTK_LABEL(v), 0.0f);
+        gtk_label_set_wrap(GTK_LABEL(v), TRUE);
         gtk_widget_set_hexpand(v, TRUE);
         gtk_box_append(GTK_BOX(row), v);
         gtk_box_append(GTK_BOX(box), row);
     }
 
-    gtk_window_set_child(GTK_WINDOW(win), box);
-    gtk_window_present(GTK_WINDOW(win));
+    GtkWidget *btn_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+    gtk_widget_set_halign(btn_row, GTK_ALIGN_END);
+    gtk_widget_set_margin_top(btn_row, 8);
+    GtkWidget *close_btn = gtk_button_new_with_label("Close");
+    gtk_widget_add_css_class(close_btn, "btn-secondary");
+    g_signal_connect_swapped(close_btn, "clicked", G_CALLBACK(school_dialog_close), win);
+    gtk_box_append(GTK_BOX(btn_row), close_btn);
+    gtk_box_append(GTK_BOX(box), btn_row);
+
+    school_dialog_set_child(win, box);
+    school_dialog_present(win);
 }
 
 typedef struct {
@@ -790,14 +799,14 @@ static void on_confirm_del(GtkButton *btn, gpointer user_data)
     }
 
     refresh_table(dc->tvw);
-    gtk_window_destroy(GTK_WINDOW(dc->dialog));
+    school_dialog_close(dc->dialog);
 }
 
 static void on_cancel_del(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     DelContext *dc = (DelContext *)user_data;
-    gtk_window_destroy(GTK_WINDOW(dc->dialog));
+    school_dialog_close(dc->dialog);
 }
 
 static void show_delete_dialog(TeacherViewWidgets *tvw, bool is_teacher, int id, const char *name)
@@ -807,11 +816,8 @@ static void show_delete_dialog(TeacherViewWidgets *tvw, bool is_teacher, int id,
     dc->is_teacher = is_teacher;
     dc->id = id;
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new("Confirm Removal", 400, 180);
     dc->dialog = win;
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_title(GTK_WINDOW(win), "Confirm Removal");
-    gtk_window_set_default_size(GTK_WINDOW(win), 400, 180);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_top(box, 20);
@@ -840,9 +846,9 @@ static void show_delete_dialog(TeacherViewWidgets *tvw, bool is_teacher, int id,
     gtk_box_append(GTK_BOX(btns), del);
 
     gtk_box_append(GTK_BOX(box), btns);
-    gtk_window_set_child(GTK_WINDOW(win), box);
+    school_dialog_set_child(win, box);
     g_object_set_data_full(G_OBJECT(win), "dc", dc, g_free);
-    gtk_window_present(GTK_WINDOW(win));
+    school_dialog_present(win);
 }
 
 /* ── Public Constructor ───────────────────────────────────────────── */
