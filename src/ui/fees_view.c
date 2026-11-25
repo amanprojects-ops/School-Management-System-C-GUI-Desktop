@@ -4,6 +4,7 @@
  */
 
 #include "ui/fees_view.h"
+#include "ui/dialog.h"
 #include "fees.h"
 #include "classes.h"
 #include "student.h"
@@ -602,8 +603,7 @@ static void on_confirm_delete_structure(GtkButton *btn, gpointer user_data)
         show_status_message(d->fvw, "Failed to delete fee structure.", false);
     }
     refresh_view(d->fvw);
-    gtk_window_destroy(GTK_WINDOW(d->dialog));
-    g_free(d);
+    school_dialog_close(d->dialog);
 }
 
 static void show_delete_structure_dialog(FeesViewWidgets *fvw, int id, const char *name)
@@ -612,18 +612,15 @@ static void show_delete_structure_dialog(FeesViewWidgets *fvw, int id, const cha
     d->fvw = fvw;
     d->id = id;
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new("Confirm Fee Structure Deletion", 420, 200);
     d->dialog = win;
-    gtk_window_set_title(GTK_WINDOW(win), "Confirm Fee Structure Deletion");
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(win), 420, 200);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_start(box, 24);
     gtk_widget_set_margin_end(box, 24);
-    gtk_widget_set_margin_top(box, 24);
-    gtk_widget_set_margin_bottom(box, 24);
-    gtk_window_set_child(GTK_WINDOW(win), box);
+    gtk_widget_set_margin_top(box, 20);
+    gtk_widget_set_margin_bottom(box, 20);
+    school_dialog_set_child(win, box);
 
     char msg[256];
     snprintf(msg, sizeof(msg), "Are you sure you want to delete fee structure '%s'?\nExisting payment records will remain in audit history.",
@@ -637,7 +634,7 @@ static void show_delete_structure_dialog(FeesViewWidgets *fvw, int id, const cha
 
     GtkWidget *cancel = gtk_button_new_with_label("Cancel");
     gtk_widget_add_css_class(cancel, "btn-secondary");
-    g_signal_connect_swapped(cancel, "clicked", G_CALLBACK(gtk_window_destroy), win);
+    g_signal_connect_swapped(cancel, "clicked", G_CALLBACK(school_dialog_close), win);
     gtk_box_append(GTK_BOX(btn_box), cancel);
 
     GtkWidget *del = gtk_button_new_with_label("Delete Structure");
@@ -646,7 +643,8 @@ static void show_delete_structure_dialog(FeesViewWidgets *fvw, int id, const cha
     gtk_box_append(GTK_BOX(btn_box), del);
 
     gtk_box_append(GTK_BOX(box), btn_box);
-    gtk_window_present(GTK_WINDOW(win));
+    g_object_set_data_full(G_OBJECT(win), "d", d, g_free);
+    school_dialog_present(win);
 }
 
 static void on_delete_structure_clicked(GtkButton *btn, gpointer user_data)
@@ -980,15 +978,14 @@ static void on_save_structure_dialog(GtkButton *btn, gpointer user_data)
     }
 
     refresh_view(d->fvw);
-    gtk_window_destroy(GTK_WINDOW(d->dialog));
-    g_free(d);
+    school_dialog_close(d->dialog);
 }
 
 static void on_cancel_dialog(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     GtkWidget *w = GTK_WIDGET(user_data);
-    gtk_window_destroy(GTK_WINDOW(w));
+    school_dialog_close(w);
 }
 
 static void show_add_edit_structure_dialog(FeesViewWidgets *fvw, int structure_id)
@@ -1000,18 +997,15 @@ static void show_add_edit_structure_dialog(FeesViewWidgets *fvw, int structure_i
     FeeStructure existing;
     bool is_edit = (structure_id > 0 && fee_structure_get_by_id(structure_id, &existing));
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new(is_edit ? "Edit Fee Structure" : "Add Fee Structure", 460, 420);
     d->dialog = win;
-    gtk_window_set_title(GTK_WINDOW(win), is_edit ? "Edit Fee Structure" : "Add Fee Structure");
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(win), 460, 420);
 
     GtkWidget *main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_start(main_box, 24);
     gtk_widget_set_margin_end(main_box, 24);
-    gtk_widget_set_margin_top(main_box, 24);
-    gtk_widget_set_margin_bottom(main_box, 24);
-    gtk_window_set_child(GTK_WINDOW(win), main_box);
+    gtk_widget_set_margin_top(main_box, 20);
+    gtk_widget_set_margin_bottom(main_box, 20);
+    school_dialog_set_child(win, main_box);
 
     GtkWidget *title_lbl = gtk_label_new(is_edit ? "Edit Fee Structure Details" : "Create New Fee Structure");
     gtk_widget_add_css_class(title_lbl, "dashboard-card-title");
@@ -1095,7 +1089,8 @@ static void show_add_edit_structure_dialog(FeesViewWidgets *fvw, int structure_i
     gtk_box_append(GTK_BOX(btn_box), save_btn);
 
     gtk_box_append(GTK_BOX(main_box), btn_box);
-    gtk_window_present(GTK_WINDOW(win));
+    g_object_set_data_full(G_OBJECT(win), "d", d, g_free);
+    school_dialog_present(win);
 }
 
 /* 2. Printable Institutional Receipt Dialog */
@@ -1103,17 +1098,14 @@ static void show_receipt_dialog(const FeePayment *p)
 {
     if (!p) return;
 
-    GtkWidget *win = gtk_window_new();
-    gtk_window_set_title(GTK_WINDOW(win), "Fee Payment Receipt");
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(win), 500, 520);
+    GtkWidget *win = school_dialog_new("Fee Payment Receipt", 500, 520);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
-    gtk_widget_set_margin_start(box, 30);
-    gtk_widget_set_margin_end(box, 30);
-    gtk_widget_set_margin_top(box, 24);
-    gtk_widget_set_margin_bottom(box, 24);
-    gtk_window_set_child(GTK_WINDOW(win), box);
+    gtk_widget_set_margin_start(box, 28);
+    gtk_widget_set_margin_end(box, 28);
+    gtk_widget_set_margin_top(box, 20);
+    gtk_widget_set_margin_bottom(box, 20);
+    school_dialog_set_child(win, box);
 
     /* Institutional Header */
     GtkWidget *inst_title = gtk_label_new("ST. XAVIER INTERNATIONAL SCHOOL");
@@ -1228,7 +1220,7 @@ static void show_receipt_dialog(const FeePayment *p)
     gtk_box_append(GTK_BOX(btn_box), close_btn);
 
     gtk_box_append(GTK_BOX(box), btn_box);
-    gtk_window_present(GTK_WINDOW(win));
+    school_dialog_present(win);
 }
 
 /* ── Main View Constructor ────────────────────────────────────────── */
