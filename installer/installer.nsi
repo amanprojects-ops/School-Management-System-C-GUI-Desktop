@@ -8,7 +8,7 @@
 !endif
 
 !ifndef APP_VERSION
-  !define APP_VERSION "1.1.4"
+  !define APP_VERSION "1.1.5"
 !endif
 
 !ifndef APP_PUBLISHER
@@ -68,7 +68,7 @@ InstallDirRegKey HKCU "Software\${APP_NAME}" "InstallPath"
 !define MUI_FINISHPAGE_RUN "$INSTDIR\${APP_EXE}"
 !define MUI_FINISHPAGE_RUN_TEXT "Launch ${APP_NAME} now"
 !define MUI_FINISHPAGE_LINK "Visit SchoolCMS Project"
-!define MUI_FINISHPAGE_LINK_LOCATION "https://github.com/amanprojects-ops/School-Management-System-C-GUI-Desktop"
+!define MUI_FINISHPAGE_LINK_LOCATION "https://github.com/amanprojects-ops"
 !insertmacro MUI_PAGE_FINISH
 
 ; Uninstaller Pages
