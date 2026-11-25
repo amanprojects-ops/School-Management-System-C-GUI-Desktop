@@ -4,6 +4,7 @@
  */
 
 #include "ui/timetable_view.h"
+#include "ui/dialog.h"
 #include "timetable.h"
 #include "classes.h"
 #include "teacher.h"
@@ -552,7 +553,7 @@ static void on_cancel_dialog(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     GtkWidget *w = GTK_WIDGET(user_data);
-    gtk_window_destroy(GTK_WINDOW(w));
+    school_dialog_close(w);
 }
 
 static void on_save_slot_dialog(GtkButton *btn, gpointer user_data)
@@ -604,8 +605,7 @@ static void on_save_slot_dialog(GtkButton *btn, gpointer user_data)
     }
 
     refresh_view(d->tw);
-    gtk_window_destroy(GTK_WINDOW(d->dialog));
-    g_free(d);
+    school_dialog_close(d->dialog);
 }
 
 static void show_add_edit_slot_dialog(TimetableWidgets *tw, int slot_id)
@@ -617,18 +617,15 @@ static void show_add_edit_slot_dialog(TimetableWidgets *tw, int slot_id)
     TimetableSlot existing;
     bool is_edit = (slot_id > 0 && timetable_service_get_by_id(slot_id, &existing));
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new(is_edit ? "Edit Timetable Period Slot" : "Assign Timetable Period Slot", 480, 520);
     d->dialog = win;
-    gtk_window_set_title(GTK_WINDOW(win), is_edit ? "Edit Timetable Period Slot" : "Assign Timetable Period Slot");
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(win), 480, 520);
 
     GtkWidget *main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_start(main_box, 24);
     gtk_widget_set_margin_end(main_box, 24);
-    gtk_widget_set_margin_top(main_box, 24);
-    gtk_widget_set_margin_bottom(main_box, 24);
-    gtk_window_set_child(GTK_WINDOW(win), main_box);
+    gtk_widget_set_margin_top(main_box, 20);
+    gtk_widget_set_margin_bottom(main_box, 20);
+    school_dialog_set_child(win, main_box);
 
     GtkWidget *title_lbl = gtk_label_new(is_edit ? "Edit Scheduled Slot" : "Assign Period Slot");
     gtk_widget_add_css_class(title_lbl, "dashboard-card-title");
@@ -812,7 +809,8 @@ static void show_add_edit_slot_dialog(TimetableWidgets *tw, int slot_id)
     gtk_box_append(GTK_BOX(btn_box), save_btn);
 
     gtk_box_append(GTK_BOX(main_box), btn_box);
-    gtk_window_present(GTK_WINDOW(win));
+    g_object_set_data_full(G_OBJECT(win), "d", d, g_free);
+    school_dialog_present(win);
 }
 
 /* 2. Delete Slot Confirmation */
@@ -832,8 +830,7 @@ static void on_confirm_delete_slot(GtkButton *btn, gpointer user_data)
         show_status_message(d->tw, "Failed to delete timetable slot.", false);
     }
     refresh_view(d->tw);
-    gtk_window_destroy(GTK_WINDOW(d->dialog));
-    g_free(d);
+    school_dialog_close(d->dialog);
 }
 
 static void show_delete_slot_dialog(TimetableWidgets *tw, int slot_id)
@@ -842,20 +839,18 @@ static void show_delete_slot_dialog(TimetableWidgets *tw, int slot_id)
     d->tw = tw;
     d->slot_id = slot_id;
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new("Confirm Slot Deletion", 400, 180);
     d->dialog = win;
-    gtk_window_set_title(GTK_WINDOW(win), "Confirm Slot Deletion");
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(win), 400, 180);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_start(box, 24);
     gtk_widget_set_margin_end(box, 24);
-    gtk_widget_set_margin_top(box, 24);
-    gtk_widget_set_margin_bottom(box, 24);
-    gtk_window_set_child(GTK_WINDOW(win), box);
+    gtk_widget_set_margin_top(box, 20);
+    gtk_widget_set_margin_bottom(box, 20);
+    school_dialog_set_child(win, box);
 
     GtkWidget *lbl = gtk_label_new("Are you sure you want to remove this timetable period slot?");
+    gtk_label_set_wrap(GTK_LABEL(lbl), TRUE);
     gtk_box_append(GTK_BOX(box), lbl);
 
     GtkWidget *btn_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
@@ -872,7 +867,8 @@ static void show_delete_slot_dialog(TimetableWidgets *tw, int slot_id)
     gtk_box_append(GTK_BOX(btn_box), del);
 
     gtk_box_append(GTK_BOX(box), btn_box);
-    gtk_window_present(GTK_WINDOW(win));
+    g_object_set_data_full(G_OBJECT(win), "d", d, g_free);
+    school_dialog_present(win);
 }
 
 /* ── Main View Constructor ────────────────────────────────────────── */
