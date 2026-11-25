@@ -4,6 +4,7 @@
  */
 
 #include "ui/window.h"
+#include "ui/dialog.h"
 #include "ui/sidebar.h"
 #include "ui/header.h"
 #include "ui/dashboard.h"
@@ -119,13 +120,17 @@ void school_window_new(GtkApplication *app)
     gtk_window_maximize(GTK_WINDOW(window));
     gtk_widget_add_css_class(window, "main-window");
 
-    /* ── Outer Root Stack (switches between Login and Main App Shell) ── */
+    /* ── Outer Root Stack wrapped in Modal Overlay Host ─────────── */
     root_stack = GTK_STACK(gtk_stack_new());
     gtk_stack_set_transition_type(root_stack, GTK_STACK_TRANSITION_TYPE_CROSSFADE);
     gtk_stack_set_transition_duration(root_stack, 250);
     gtk_stack_set_hhomogeneous(root_stack, FALSE);
     gtk_stack_set_vhomogeneous(root_stack, FALSE);
-    gtk_window_set_child(GTK_WINDOW(window), GTK_WIDGET(root_stack));
+
+    GtkWidget *main_overlay = gtk_overlay_new();
+    gtk_overlay_set_child(GTK_OVERLAY(main_overlay), GTK_WIDGET(root_stack));
+    gtk_window_set_child(GTK_WINDOW(window), main_overlay);
+    school_dialog_init(GTK_WINDOW(window), GTK_OVERLAY(main_overlay), GTK_WIDGET(root_stack));
 
     /* 1. Login View */
     login_view = school_login_view_new(on_login_success, NULL);
@@ -224,6 +229,7 @@ void school_window_new(GtkApplication *app)
 
 void school_window_show_login(void)
 {
+    school_dialog_close_all();
     if (root_stack && login_view) {
         school_login_view_reset(login_view);
         gtk_stack_set_visible_child_name(root_stack, "login");
