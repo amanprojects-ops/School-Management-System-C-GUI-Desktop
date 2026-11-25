@@ -51,6 +51,13 @@ void school_window_new(GtkApplication *app);
 void school_window_navigate(NavPage page);
 
 /**
+ * @brief Return the RBAC module identifier for a navigation page, or NULL for Dashboard.
+ * @param page  Target NavPage.
+ * @return Static module string (e.g. "STUDENTS") or NULL.
+ */
+const char *school_window_page_module(NavPage page);
+
+/**
  * @brief Get the main content GtkStack.
  * @return The GtkStack used for page switching, or NULL before window creation.
  */
