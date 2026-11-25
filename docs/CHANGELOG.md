@@ -6,7 +6,10 @@ This document tracks all version releases, milestone tags, and feature additions
 
 ## Version Milestones
 
-### v1.1.5 (Current Release)
+### v1.1.6 (Current Release)
+- APCOACHING v1.1.6 release
+
+### v1.1.5 
 - APCOACHING v1.1.5 release
 
 ### v1.1.4 
@@ -85,3 +88,4 @@ This repository maintains 34 annotated Git tags tracking each milestone from ini
 | `v1.1.3` | `6d79ce0` | Windows PE icon resource embedding, dynamic monitor auto-adjust, and Setup installer wizard |
 | `v1.1.4` | `b709ecf` | APCOACHING v1.1.4 release |
 | `v1.1.5` | `3dc5204` | APCOACHING v1.1.5 release |
+| `v1.1.6` | `f0e2f7a` | APCOACHING v1.1.6 release |
