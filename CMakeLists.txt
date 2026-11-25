@@ -34,6 +34,7 @@ set(SOURCES
     src/modules/reports.c
     src/modules/settings.c
     src/ui/login.c
+    src/ui/dialog.c
     src/ui/window.c
     src/ui/sidebar.c
     src/ui/header.c
