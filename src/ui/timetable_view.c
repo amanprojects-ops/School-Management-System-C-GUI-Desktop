@@ -97,6 +97,10 @@ static void on_add_slot_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     TimetableWidgets *tw = (TimetableWidgets *)user_data;
+    if (!auth_current_user_can_access("TIMETABLE", true)) {
+        show_status_message(tw, "Read-only access: your role cannot modify timetable slots.", false);
+        return;
+    }
     show_add_edit_slot_dialog(tw, 0);
 }
 
@@ -346,18 +350,21 @@ static void render_class_schedule_tab(TimetableWidgets *tw)
                 gtk_box_append(GTK_BOX(row), rm_lbl);
 
                 /* Actions */
+                gboolean can_edit = auth_current_user_can_access("TIMETABLE", true);
                 GtkWidget *act_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
 
                 GtkWidget *edit_btn = gtk_button_new_with_label("Edit");
                 gtk_widget_add_css_class(edit_btn, "btn-secondary");
                 g_object_set_data(G_OBJECT(edit_btn), "tw", tw);
                 g_signal_connect(edit_btn, "clicked", G_CALLBACK(on_edit_slot_btn), GINT_TO_POINTER(slot->id));
+                gtk_widget_set_visible(edit_btn, can_edit);
                 gtk_box_append(GTK_BOX(act_box), edit_btn);
 
                 GtkWidget *del_btn = gtk_button_new_with_label("Delete");
                 gtk_widget_add_css_class(del_btn, "btn-danger");
                 g_object_set_data(G_OBJECT(del_btn), "tw", tw);
                 g_signal_connect(del_btn, "clicked", G_CALLBACK(on_delete_slot_btn), GINT_TO_POINTER(slot->id));
+                gtk_widget_set_visible(del_btn, can_edit);
                 gtk_box_append(GTK_BOX(act_box), del_btn);
 
                 gtk_box_append(GTK_BOX(row), act_box);
@@ -508,6 +515,10 @@ static void render_teacher_schedule_tab(TimetableWidgets *tw)
 
 static void refresh_view(TimetableWidgets *tw)
 {
+    if (tw->add_slot_btn) {
+        gtk_widget_set_visible(tw->add_slot_btn, auth_current_user_can_access("TIMETABLE", true));
+    }
+
     /* Clear content container */
     GtkWidget *c = gtk_widget_get_first_child(tw->content_container);
     while (c) {
