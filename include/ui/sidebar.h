@@ -26,4 +26,9 @@ GtkWidget *school_sidebar_new(void);
  */
 void school_sidebar_set_active(int page_index);
 
+/**
+ * @brief Show or hide sidebar navigation items based on the active user's role permissions.
+ */
+void school_sidebar_apply_permissions(void);
+
 #endif /* SCHOOLCMS_UI_SIDEBAR_H */
