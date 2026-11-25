@@ -25,9 +25,9 @@ scripts\package_windows.bat
 
 ### Generated Artifacts in `dist/`:
 
-1. **Portable Directory:** `dist/APCOACHING-v1.1.5-windows-x64/`
+1. **Portable Directory:** `dist/APCOACHING-v1.1.6-windows-x64/`
    ```
-   dist/APCOACHING-v1.1.5-windows-x64/
+   dist/APCOACHING-v1.1.6-windows-x64/
    ├── APCOACHING.exe                # Main compiled C11 application binary
    ├── Run_APCOACHING.bat            # Production launcher script with environment setup
    ├── README.txt                    # Standalone end-user instructions
@@ -45,7 +45,7 @@ scripts\package_windows.bat
            └── hicolor/              # Fallback theme definitions
    ```
 
-2. **Compressed Release Archive:** `dist/APCOACHING-v1.1.5-windows-x64.zip` (~28.8 MB)
+2. **Compressed Release Archive:** `dist/APCOACHING-v1.1.6-windows-x64.zip` (~28.8 MB)
    - Self-contained portable ZIP archive ready for distribution.
    - Users simply extract the ZIP on any Windows 10/11 x64 PC and double-click `Run_APCOACHING.bat`.
 
@@ -62,7 +62,7 @@ python scripts/build_installer.py
 ```
 
 ### Installer Output:
-- **Target File:** `dist/APCOACHING-v1.1.5-Setup.exe` (~19.5 MB)
+- **Target File:** `dist/APCOACHING-v1.1.6-Setup.exe` (~19.5 MB)
 - **Compression:** Solid LZMA (compresses 73 MB of binaries down to under 20 MB)
 
 ### Key Features of the Installer:
