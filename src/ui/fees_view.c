@@ -31,6 +31,7 @@ typedef struct {
     GtkWidget *tab_dues_btn;
     GtkWidget *content_container;
     GtkWidget *primary_action_btn;
+    GtkWidget *submit_btn;
     GtkWidget *status_banner;
 
     FeesTab current_tab;
@@ -123,7 +124,7 @@ static void on_tab_structures_clicked(GtkButton *btn, gpointer user_data)
     gtk_widget_remove_css_class(fvw->tab_transactions_btn, "tab-btn-active");
     gtk_widget_add_css_class(fvw->tab_structures_btn, "tab-btn-active");
     gtk_widget_remove_css_class(fvw->tab_dues_btn, "tab-btn-active");
-    gtk_widget_set_visible(fvw->primary_action_btn, TRUE);
+    gtk_widget_set_visible(fvw->primary_action_btn, auth_current_user_can_access("FEES", true));
     gtk_button_set_label(GTK_BUTTON(fvw->primary_action_btn), "+ Add Fee Structure");
     refresh_view(fvw);
 }
@@ -146,6 +147,10 @@ static void on_primary_action_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     FeesViewWidgets *fvw = (FeesViewWidgets *)user_data;
+    if (!auth_current_user_can_access("FEES", true)) {
+        show_status_message(fvw, "Read-only access: your role cannot create fee structures.", false);
+        return;
+    }
     if (fvw->current_tab == TAB_STRUCTURES) {
         show_add_edit_structure_dialog(fvw, 0);
     }
@@ -198,6 +203,13 @@ static void on_submit_payment_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     FeesViewWidgets *fvw = (FeesViewWidgets *)user_data;
+    if (!auth_current_user_can_access("FEES", true)) {
+        if (fvw->status_banner) {
+            gtk_label_set_text(GTK_LABEL(fvw->status_banner), "Read-only access: your role cannot collect fee payments.");
+            gtk_widget_set_visible(fvw->status_banner, TRUE);
+        }
+        return;
+    }
 
     guint sel_stu = gtk_drop_down_get_selected(GTK_DROP_DOWN(fvw->combo_student));
     if ((int)sel_stu >= fvw->student_count) return;
@@ -420,8 +432,10 @@ static void render_collect_fee_tab(FeesViewWidgets *fvw)
     gtk_box_append(GTK_BOX(row4), b_rmk);
 
     GtkWidget *submit_btn = gtk_button_new_with_label("Collect & Print Receipt");
+    fvw->submit_btn = submit_btn;
     gtk_widget_add_css_class(submit_btn, "btn-primary");
     g_signal_connect(submit_btn, "clicked", G_CALLBACK(on_submit_payment_clicked), fvw);
+    gtk_widget_set_visible(submit_btn, auth_current_user_can_access("FEES", true));
     gtk_box_append(GTK_BOX(row4), submit_btn);
 
     gtk_box_append(GTK_BOX(form_grid), row4);
@@ -730,6 +744,7 @@ static void render_structures_tab(FeesViewWidgets *fvw)
         gtk_box_append(GTK_BOX(row), due_lbl);
 
         /* Actions */
+        gboolean can_edit = auth_current_user_can_access("FEES", true);
         GtkWidget *act_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
         gtk_widget_set_size_request(act_box, widths[5], -1);
 
@@ -737,6 +752,7 @@ static void render_structures_tab(FeesViewWidgets *fvw)
         gtk_widget_add_css_class(edit_btn, "btn-secondary");
         g_object_set_data(G_OBJECT(edit_btn), "fvw", fvw);
         g_signal_connect(edit_btn, "clicked", G_CALLBACK(on_edit_structure_clicked), GINT_TO_POINTER(st->id));
+        gtk_widget_set_visible(edit_btn, can_edit);
         gtk_box_append(GTK_BOX(act_box), edit_btn);
 
         GtkWidget *del_btn = gtk_button_new_with_label("Delete");
@@ -744,6 +760,7 @@ static void render_structures_tab(FeesViewWidgets *fvw)
         g_object_set_data(G_OBJECT(del_btn), "fvw", fvw);
         g_object_set_data_full(G_OBJECT(del_btn), "struct_name", g_strdup(st->name), g_free);
         g_signal_connect(del_btn, "clicked", G_CALLBACK(on_delete_structure_clicked), GINT_TO_POINTER(st->id));
+        gtk_widget_set_visible(del_btn, can_edit);
         gtk_box_append(GTK_BOX(act_box), del_btn);
 
         gtk_box_append(GTK_BOX(row), act_box);
@@ -769,6 +786,10 @@ static void on_dues_class_changed(GtkDropDown *dropdown, GParamSpec *pspec, gpoi
 static void on_collect_due_for_student(GtkButton *btn, gpointer user_data)
 {
     FeesViewWidgets *fvw = (FeesViewWidgets *)g_object_get_data(G_OBJECT(btn), "fvw");
+    if (!auth_current_user_can_access("FEES", true)) {
+        show_status_message(fvw, "Read-only access: your role cannot collect fee payments.", false);
+        return;
+    }
     int student_id = GPOINTER_TO_INT(user_data);
 
     /* Switch to collect tab and select this student */
@@ -891,6 +912,7 @@ static void render_pending_dues_tab(FeesViewWidgets *fvw)
         gtk_widget_set_size_request(act_btn, widths[7], -1);
         g_object_set_data(G_OBJECT(act_btn), "fvw", fvw);
         g_signal_connect(act_btn, "clicked", G_CALLBACK(on_collect_due_for_student), GINT_TO_POINTER(s->student_id));
+        gtk_widget_set_visible(act_btn, auth_current_user_can_access("FEES", true));
         gtk_box_append(GTK_BOX(row), act_btn);
 
         gtk_box_append(GTK_BOX(card), row);
@@ -899,6 +921,22 @@ static void render_pending_dues_tab(FeesViewWidgets *fvw)
 
 static void refresh_view(FeesViewWidgets *fvw)
 {
+    gboolean can_edit = auth_current_user_can_access("FEES", true);
+    if (fvw->tab_collect_btn) {
+        gtk_widget_set_visible(fvw->tab_collect_btn, can_edit);
+    }
+    if (!can_edit && fvw->current_tab == TAB_COLLECT) {
+        fvw->current_tab = TAB_TRANSACTIONS;
+        gtk_widget_remove_css_class(fvw->tab_collect_btn, "tab-btn-active");
+        gtk_widget_add_css_class(fvw->tab_transactions_btn, "tab-btn-active");
+    }
+    if (fvw->primary_action_btn) {
+        gtk_widget_set_visible(fvw->primary_action_btn, can_edit && fvw->current_tab == TAB_STRUCTURES);
+    }
+    if (fvw->submit_btn) {
+        gtk_widget_set_visible(fvw->submit_btn, can_edit);
+    }
+
     /* Clear content container */
     GtkWidget *c = gtk_widget_get_first_child(fvw->content_container);
     while (c) {
