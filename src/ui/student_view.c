@@ -8,6 +8,7 @@
 #include "student.h"
 #include "classes.h"
 #include "settings.h"
+#include "auth/auth.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,6 +19,7 @@ typedef struct {
     GtkWidget *gender_combo;
     GtkWidget *status_combo;
     GtkWidget *table_container;
+    GtkWidget *add_btn;
     GtkWidget *pagination_label;
     GtkWidget *prev_btn;
     GtkWidget *next_btn;
@@ -120,6 +122,10 @@ static void on_add_student_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     StudentViewWidgets *svw = (StudentViewWidgets *)user_data;
+    if (!auth_current_user_can_access("STUDENTS", true)) {
+        show_status_message(svw, "Read-only access: your role cannot modify student records.", false);
+        return;
+    }
     show_add_edit_dialog(svw, 0);
 }
 
@@ -150,6 +156,10 @@ static void on_edit_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     StudentViewWidgets *svw = (StudentViewWidgets *)g_object_get_data(G_OBJECT(btn), "svw");
+    if (!auth_current_user_can_access("STUDENTS", true)) {
+        show_status_message(svw, "Read-only access: your role cannot edit students.", false);
+        return;
+    }
     int student_id = GPOINTER_TO_INT(user_data);
     show_add_edit_dialog(svw, student_id);
 }
@@ -158,6 +168,10 @@ static void on_delete_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     StudentViewWidgets *svw = (StudentViewWidgets *)g_object_get_data(G_OBJECT(btn), "svw");
+    if (!auth_current_user_can_access("STUDENTS", true)) {
+        show_status_message(svw, "Read-only access: your role cannot delete students.", false);
+        return;
+    }
     int student_id = GPOINTER_TO_INT(user_data);
     const char *name = (const char *)g_object_get_data(G_OBJECT(btn), "student_name");
     const char *adm_no = (const char *)g_object_get_data(G_OBJECT(btn), "student_adm");
@@ -168,6 +182,10 @@ static void on_delete_clicked(GtkButton *btn, gpointer user_data)
 
 static void refresh_student_table(StudentViewWidgets *svw)
 {
+    if (svw->add_btn) {
+        gtk_widget_set_visible(svw->add_btn, auth_current_user_can_access("STUDENTS", true));
+    }
+
     student_service_get_page(&svw->filter, &svw->current_page);
 
     /* Clear existing rows */
@@ -290,12 +308,15 @@ static void refresh_student_table(StudentViewWidgets *svw)
             g_signal_connect(id_btn, "clicked", G_CALLBACK(on_id_card_clicked), GINT_TO_POINTER(s->id));
             gtk_box_append(GTK_BOX(acts_box), id_btn);
 
+            gboolean can_edit = auth_current_user_can_access("STUDENTS", true);
+
             GtkWidget *edit_btn = gtk_button_new_from_icon_name("document-edit-symbolic");
             gtk_button_set_has_frame(GTK_BUTTON(edit_btn), FALSE);
             gtk_widget_add_css_class(edit_btn, "btn-action-edit");
             gtk_widget_set_tooltip_text(edit_btn, "Edit Details");
             g_object_set_data(G_OBJECT(edit_btn), "svw", svw);
             g_signal_connect(edit_btn, "clicked", G_CALLBACK(on_edit_clicked), GINT_TO_POINTER(s->id));
+            gtk_widget_set_visible(edit_btn, can_edit);
             gtk_box_append(GTK_BOX(acts_box), edit_btn);
 
             GtkWidget *del_btn = gtk_button_new_from_icon_name("user-trash-symbolic");
@@ -306,6 +327,7 @@ static void refresh_student_table(StudentViewWidgets *svw)
             g_object_set_data_full(G_OBJECT(del_btn), "student_name", g_strdup(s->full_name), g_free);
             g_object_set_data_full(G_OBJECT(del_btn), "student_adm", g_strdup(s->admission_no), g_free);
             g_signal_connect(del_btn, "clicked", G_CALLBACK(on_delete_clicked), GINT_TO_POINTER(s->id));
+            gtk_widget_set_visible(del_btn, can_edit);
             gtk_box_append(GTK_BOX(acts_box), del_btn);
 
             gtk_box_append(GTK_BOX(row), acts_box);
@@ -400,6 +422,13 @@ static void on_save_student(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     FormDialogData *fdd = (FormDialogData *)user_data;
+    if (!auth_current_user_can_access("STUDENTS", true)) {
+        if (fdd && fdd->svw) {
+            show_status_message(fdd->svw, "Read-only access: your role cannot save student records.", false);
+        }
+        if (fdd && fdd->dialog) school_dialog_close(fdd->dialog);
+        return;
+    }
 
     const char *name = gtk_editable_get_text(GTK_EDITABLE(fdd->entry_name));
     if (!name || strlen(name) == 0) {
@@ -1316,6 +1345,7 @@ GtkWidget *school_student_view_new(void)
     gtk_box_append(GTK_BOX(header_row), bulk_id_btn);
 
     GtkWidget *add_btn = gtk_button_new_with_label("+ Add Student");
+    svw->add_btn = add_btn;
     gtk_widget_add_css_class(add_btn, "btn-primary");
     g_signal_connect(add_btn, "clicked", G_CALLBACK(on_add_student_clicked), svw);
     gtk_box_append(GTK_BOX(header_row), add_btn);
