@@ -763,3 +763,55 @@ combobox:hover {
     padding: 6px 14px;
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   12. IN-APP MODAL DIALOG OVERLAY
+   ═══════════════════════════════════════════════════════════════════ */
+
+.dialog-backdrop {
+    background-color: rgba(15, 23, 42, 0.52);
+    transition: background-color 180ms ease;
+}
+
+.dialog-card {
+    background-color: #ffffff;
+    border-radius: 16px;
+    border: 1px solid #cbd5e1;
+    box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.35),
+                0 8px 16px -4px rgba(15, 23, 42, 0.12);
+}
+
+.dialog-header {
+    background-color: #f8fafc;
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
+    padding: 14px 20px;
+}
+
+.dialog-title {
+    color: #0f172a;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+}
+
+.btn-dialog-close {
+    background-color: transparent;
+    color: #64748b;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 4px 8px;
+    min-width: 28px;
+    min-height: 28px;
+}
+
+.btn-dialog-close:hover {
+    background-color: #fee2e2;
+    color: #dc2626;
+    border-color: #fecaca;
+}
+
+.dialog-body-scroll {
+    border-bottom-left-radius: 15px;
+    border-bottom-right-radius: 15px;
+}
+
