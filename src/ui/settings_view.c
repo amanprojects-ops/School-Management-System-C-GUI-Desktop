@@ -16,6 +16,8 @@
 
 #ifdef _WIN32
 #include <direct.h>
+#include "ui/sidebar.h"
+
 #define MKDIR(dir) _mkdir(dir)
 #else
 #include <sys/stat.h>
@@ -112,6 +114,15 @@ typedef struct {
     GtkWidget *backups_box;
     GtkWidget *lbl_backups_summary;
 
+    /* Role-gated write controls */
+    GtkWidget *save_prof_btn;
+    GtkWidget *btn_save_smtp;
+    GtkWidget *btn_test_smtp;
+    GtkWidget *btn_add_user;
+    GtkWidget *btn_save_perms;
+    GtkWidget *btn_backup;
+    GtkWidget *btn_rest;
+
     SchoolSettings current_settings;
 } SettingsWidgets;
 
@@ -129,6 +140,11 @@ static void on_save_settings_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     SettingsWidgets *sw = (SettingsWidgets *)user_data;
+    if (!auth_current_user_can_access("SETTINGS", true)) {
+        gtk_label_set_text(GTK_LABEL(sw->status_banner), "Read-only access: SETTINGS edit permission required.");
+        gtk_widget_set_visible(sw->status_banner, TRUE);
+        return;
+    }
 
     const char *name = gtk_editable_get_text(GTK_EDITABLE(sw->entry_school_name));
     const char *addr = gtk_editable_get_text(GTK_EDITABLE(sw->entry_school_address));
@@ -263,6 +279,11 @@ static void on_save_smtp_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     SettingsWidgets *sw = (SettingsWidgets *)user_data;
+    if (!auth_current_user_can_access("SETTINGS", true)) {
+        gtk_label_set_text(GTK_LABEL(sw->status_banner), "Read-only access: SETTINGS edit permission required.");
+        gtk_widget_set_visible(sw->status_banner, TRUE);
+        return;
+    }
 
     SmtpConfig cfg;
     memset(&cfg, 0, sizeof(SmtpConfig));
@@ -305,6 +326,11 @@ static void on_test_smtp_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     SettingsWidgets *sw = (SettingsWidgets *)user_data;
+    if (!auth_current_user_can_access("SETTINGS", true)) {
+        gtk_label_set_text(GTK_LABEL(sw->status_banner), "Read-only access: SETTINGS edit permission required.");
+        gtk_widget_set_visible(sw->status_banner, TRUE);
+        return;
+    }
 
     SmtpConfig cfg;
     memset(&cfg, 0, sizeof(SmtpConfig));
@@ -400,6 +426,11 @@ static void on_cancel_admin_reset_clicked(GtkButton *btn, gpointer user_data)
 static void on_row_user_reset_pwd_clicked(GtkButton *btn, gpointer user_data)
 {
     SettingsWidgets *sw = (SettingsWidgets *)user_data;
+    if (!auth_current_user_can_access("SETTINGS", true)) {
+        gtk_label_set_text(GTK_LABEL(sw->status_banner), "Read-only access: SETTINGS edit permission required.");
+        gtk_widget_set_visible(sw->status_banner, TRUE);
+        return;
+    }
     int uid = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(btn), "user_id"));
     const char *uname = (const char *)g_object_get_data(G_OBJECT(btn), "user_name");
 
@@ -465,6 +496,11 @@ static void on_row_user_reset_pwd_clicked(GtkButton *btn, gpointer user_data)
 static void on_row_user_toggle_status_clicked(GtkButton *btn, gpointer user_data)
 {
     SettingsWidgets *sw = (SettingsWidgets *)user_data;
+    if (!auth_current_user_can_access("SETTINGS", true)) {
+        gtk_label_set_text(GTK_LABEL(sw->status_banner), "Read-only access: SETTINGS edit permission required.");
+        gtk_widget_set_visible(sw->status_banner, TRUE);
+        return;
+    }
     int uid = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(btn), "user_id"));
 
     AuthResult res = auth_toggle_user_status(uid);
@@ -730,6 +766,7 @@ static void refresh_users_list(SettingsWidgets *sw)
         gtk_widget_set_size_request(l_st, 80, -1);
         gtk_box_append(GTK_BOX(row), l_st);
 
+        gboolean can_edit = auth_current_user_can_access("SETTINGS", true);
         GtkWidget *btn_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
         gtk_widget_set_size_request(btn_box, 180, -1);
 
@@ -737,6 +774,7 @@ static void refresh_users_list(SettingsWidgets *sw)
         gtk_widget_add_css_class(btn_status, is_act ? "btn-secondary" : "btn-primary");
         g_object_set_data(G_OBJECT(btn_status), "user_id", GINT_TO_POINTER(users[i].id));
         g_signal_connect(btn_status, "clicked", G_CALLBACK(on_row_user_toggle_status_clicked), sw);
+        gtk_widget_set_visible(btn_status, can_edit);
         gtk_box_append(GTK_BOX(btn_box), btn_status);
 
         GtkWidget *btn_pwd = gtk_button_new_with_label("Reset Pwd");
@@ -744,6 +782,7 @@ static void refresh_users_list(SettingsWidgets *sw)
         g_object_set_data(G_OBJECT(btn_pwd), "user_id", GINT_TO_POINTER(users[i].id));
         g_object_set_data_full(G_OBJECT(btn_pwd), "user_name", g_strdup(users[i].username), g_free);
         g_signal_connect(btn_pwd, "clicked", G_CALLBACK(on_row_user_reset_pwd_clicked), sw);
+        gtk_widget_set_visible(btn_pwd, can_edit);
         gtk_box_append(GTK_BOX(btn_box), btn_pwd);
 
         gtk_box_append(GTK_BOX(row), btn_box);
@@ -802,6 +841,11 @@ static void on_save_permissions_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     SettingsWidgets *sw = (SettingsWidgets *)user_data;
+    if (!auth_current_user_can_access("SETTINGS", true)) {
+        gtk_label_set_text(GTK_LABEL(sw->status_banner), "Read-only access: SETTINGS edit permission required.");
+        gtk_widget_set_visible(sw->status_banner, TRUE);
+        return;
+    }
 
     int role_id = sw->selected_perm_role_id;
     for (int i = 0; i < 9; i++) {
@@ -810,6 +854,7 @@ static void on_save_permissions_clicked(GtkButton *btn, gpointer user_data)
         auth_set_role_permission(role_id, MODULE_NAMES[i], can_v, can_e);
     }
 
+    school_sidebar_apply_permissions();
     gtk_label_set_text(GTK_LABEL(sw->status_banner), "Role permissions matrix saved successfully.");
     gtk_widget_remove_css_class(sw->status_banner, "card-kpi-red");
     gtk_widget_add_css_class(sw->status_banner, "card-kpi-green");
@@ -892,6 +937,11 @@ static void on_confirm_delete_clicked(GtkButton *btn, gpointer user_data)
 static void on_row_restore_clicked(GtkButton *btn, gpointer user_data)
 {
     SettingsWidgets *sw = (SettingsWidgets *)user_data;
+    if (!auth_current_user_can_access("SETTINGS", true)) {
+        gtk_label_set_text(GTK_LABEL(sw->status_banner), "Read-only access: SETTINGS edit permission required.");
+        gtk_widget_set_visible(sw->status_banner, TRUE);
+        return;
+    }
     const char *fpath = (const char *)g_object_get_data(G_OBJECT(btn), "backup_path");
     const char *fname = (const char *)g_object_get_data(G_OBJECT(btn), "backup_name");
     if (!fpath) return;
@@ -1002,6 +1052,11 @@ static void on_create_backup_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     SettingsWidgets *sw = (SettingsWidgets *)user_data;
+    if (!auth_current_user_can_access("SETTINGS", true)) {
+        gtk_label_set_text(GTK_LABEL(sw->status_banner), "Read-only access: SETTINGS edit permission required.");
+        gtk_widget_set_visible(sw->status_banner, TRUE);
+        return;
+    }
 
     MKDIR("backups");
 
@@ -1036,6 +1091,11 @@ static void on_restore_backup_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     SettingsWidgets *sw = (SettingsWidgets *)user_data;
+    if (!auth_current_user_can_access("SETTINGS", true)) {
+        gtk_label_set_text(GTK_LABEL(sw->status_banner), "Read-only access: SETTINGS edit permission required.");
+        gtk_widget_set_visible(sw->status_banner, TRUE);
+        return;
+    }
 
     const char *path = gtk_editable_get_text(GTK_EDITABLE(sw->entry_restore_path));
     if (!path || strlen(path) == 0) {
@@ -1171,11 +1231,14 @@ static void refresh_backup_list(SettingsWidgets *sw)
         GtkWidget *btn_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
         gtk_widget_set_size_request(btn_box, 160, -1);
 
+        gboolean can_edit = auth_current_user_can_access("SETTINGS", true);
+
         GtkWidget *btn_rest = gtk_button_new_with_label("Restore");
         gtk_widget_add_css_class(btn_rest, "btn-secondary");
         g_object_set_data_full(G_OBJECT(btn_rest), "backup_path", g_strdup(backups[i].filepath), g_free);
         g_object_set_data_full(G_OBJECT(btn_rest), "backup_name", g_strdup(backups[i].filename), g_free);
         g_signal_connect(btn_rest, "clicked", G_CALLBACK(on_row_restore_clicked), sw);
+        gtk_widget_set_visible(btn_rest, can_edit);
         gtk_box_append(GTK_BOX(btn_box), btn_rest);
 
         GtkWidget *btn_del = gtk_button_new_with_label("Delete");
@@ -1183,6 +1246,7 @@ static void refresh_backup_list(SettingsWidgets *sw)
         g_object_set_data_full(G_OBJECT(btn_del), "backup_path", g_strdup(backups[i].filepath), g_free);
         g_object_set_data_full(G_OBJECT(btn_del), "backup_name", g_strdup(backups[i].filename), g_free);
         g_signal_connect(btn_del, "clicked", G_CALLBACK(on_row_delete_clicked), sw);
+        gtk_widget_set_visible(btn_del, can_edit);
         gtk_box_append(GTK_BOX(btn_box), btn_del);
 
         gtk_box_append(GTK_BOX(row), btn_box);
@@ -1407,6 +1471,7 @@ GtkWidget *school_settings_view_new(void)
     gtk_box_append(GTK_BOX(hdr_prof), lbl_sec1);
 
     GtkWidget *save_prof_btn = gtk_button_new_with_label("Save Profile");
+    sw->save_prof_btn = save_prof_btn;
     gtk_widget_add_css_class(save_prof_btn, "btn-primary");
     g_signal_connect(save_prof_btn, "clicked", G_CALLBACK(on_save_settings_clicked), sw);
     gtk_box_append(GTK_BOX(hdr_prof), save_prof_btn);
@@ -1669,11 +1734,13 @@ GtkWidget *school_settings_view_new(void)
     gtk_widget_set_margin_top(smtp_btns, 8);
 
     GtkWidget *btn_save_smtp = gtk_button_new_with_label("Save SMTP Settings");
+    sw->btn_save_smtp = btn_save_smtp;
     gtk_widget_add_css_class(btn_save_smtp, "btn-primary");
     g_signal_connect(btn_save_smtp, "clicked", G_CALLBACK(on_save_smtp_clicked), sw);
     gtk_box_append(GTK_BOX(smtp_btns), btn_save_smtp);
 
     GtkWidget *btn_test_smtp = gtk_button_new_with_label("Test SMTP Connection");
+    sw->btn_test_smtp = btn_test_smtp;
     gtk_widget_add_css_class(btn_test_smtp, "btn-secondary");
     g_signal_connect(btn_test_smtp, "clicked", G_CALLBACK(on_test_smtp_clicked), sw);
     gtk_box_append(GTK_BOX(smtp_btns), btn_test_smtp);
@@ -1695,6 +1762,7 @@ GtkWidget *school_settings_view_new(void)
     gtk_box_append(GTK_BOX(hdr_users), lbl_u_title);
 
     GtkWidget *btn_add_user = gtk_button_new_with_label("+ Register New User");
+    sw->btn_add_user = btn_add_user;
     gtk_widget_add_css_class(btn_add_user, "btn-primary");
     g_signal_connect(btn_add_user, "clicked", G_CALLBACK(on_add_new_user_clicked), sw);
     gtk_box_append(GTK_BOX(hdr_users), btn_add_user);
@@ -1725,6 +1793,7 @@ GtkWidget *school_settings_view_new(void)
     gtk_box_append(GTK_BOX(hdr_roles), lbl_r_title);
 
     GtkWidget *btn_save_perms = gtk_button_new_with_label("Save Permissions");
+    sw->btn_save_perms = btn_save_perms;
     gtk_widget_add_css_class(btn_save_perms, "btn-primary");
     g_signal_connect(btn_save_perms, "clicked", G_CALLBACK(on_save_permissions_clicked), sw);
     gtk_box_append(GTK_BOX(hdr_roles), btn_save_perms);
@@ -1809,6 +1878,7 @@ GtkWidget *school_settings_view_new(void)
 
     GtkWidget *bk_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
     GtkWidget *btn_backup = gtk_button_new_with_label("Create Backup Now");
+    sw->btn_backup = btn_backup;
     gtk_widget_add_css_class(btn_backup, "btn-primary");
     g_signal_connect(btn_backup, "clicked", G_CALLBACK(on_create_backup_clicked), sw);
     gtk_box_append(GTK_BOX(bk_row), btn_backup);
@@ -1851,6 +1921,7 @@ GtkWidget *school_settings_view_new(void)
     gtk_box_append(GTK_BOX(r_input), sw->entry_restore_path);
 
     GtkWidget *btn_rest = gtk_button_new_with_label("Restore File");
+    sw->btn_rest = btn_rest;
     gtk_widget_add_css_class(btn_rest, "btn-secondary");
     g_signal_connect(btn_rest, "clicked", G_CALLBACK(on_restore_backup_clicked), sw);
     gtk_box_append(GTK_BOX(r_input), btn_rest);
@@ -1885,6 +1956,15 @@ void school_settings_view_reload(GtkWidget *view)
     if (!view) return;
     SettingsWidgets *sw = (SettingsWidgets *)g_object_get_data(G_OBJECT(view), "settings_state");
     if (sw) {
+        gboolean can_edit = auth_current_user_can_access("SETTINGS", true);
+        if (sw->save_prof_btn)  gtk_widget_set_visible(sw->save_prof_btn, can_edit);
+        if (sw->btn_save_smtp)  gtk_widget_set_visible(sw->btn_save_smtp, can_edit);
+        if (sw->btn_test_smtp)  gtk_widget_set_visible(sw->btn_test_smtp, can_edit);
+        if (sw->btn_add_user)   gtk_widget_set_visible(sw->btn_add_user, can_edit);
+        if (sw->btn_save_perms) gtk_widget_set_visible(sw->btn_save_perms, can_edit);
+        if (sw->btn_backup)     gtk_widget_set_visible(sw->btn_backup, can_edit);
+        if (sw->btn_rest)       gtk_widget_set_visible(sw->btn_rest, can_edit);
+
         load_settings_into_form(sw);
         load_smtp_into_form(sw);
         refresh_audit_logs(sw);
