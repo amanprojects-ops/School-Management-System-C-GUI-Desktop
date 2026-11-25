@@ -4,6 +4,7 @@
  */
 
 #include "ui/student_view.h"
+#include "ui/dialog.h"
 #include "student.h"
 #include "classes.h"
 #include "settings.h"
@@ -460,7 +461,7 @@ static void on_save_student(GtkButton *btn, gpointer user_data)
     }
 
     refresh_student_table(fdd->svw);
-    gtk_window_destroy(GTK_WINDOW(fdd->dialog));
+    school_dialog_close(fdd->dialog);
 }
 
 static void show_add_edit_dialog(StudentViewWidgets *svw, int student_id)
@@ -469,14 +470,8 @@ static void show_add_edit_dialog(StudentViewWidgets *svw, int student_id)
     fdd->svw = svw;
     fdd->student_id = student_id;
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new((student_id > 0) ? "Edit Student Record" : "Enroll New Student", 560, 620);
     fdd->dialog = win;
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_title(GTK_WINDOW(win), (student_id > 0) ? "Edit Student Record" : "Enroll New Student");
-    gtk_window_set_default_size(GTK_WINDOW(win), 560, 620);
-
-    GtkWidget *scroll = gtk_scrolled_window_new();
-    gtk_window_set_child(GTK_WINDOW(win), scroll);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 14);
     gtk_widget_set_margin_top(box, 20);
@@ -652,9 +647,9 @@ static void show_add_edit_dialog(StudentViewWidgets *svw, int student_id)
     g_signal_connect(save_btn, "clicked", G_CALLBACK(on_save_student), fdd);
     gtk_box_append(GTK_BOX(box), save_btn);
 
-    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scroll), box);
+    school_dialog_set_child(win, box);
     g_object_set_data_full(G_OBJECT(win), "fdd", fdd, g_free);
-    gtk_window_present(GTK_WINDOW(win));
+    school_dialog_present(win);
 }
 
 static void show_profile_dialog(StudentViewWidgets *svw, int student_id)
@@ -663,14 +658,11 @@ static void show_profile_dialog(StudentViewWidgets *svw, int student_id)
     Student s;
     if (!student_service_get_by_id(student_id, &s)) return;
 
-    GtkWidget *win = gtk_window_new();
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_title(GTK_WINDOW(win), "Student Profile Details");
-    gtk_window_set_default_size(GTK_WINDOW(win), 460, 480);
+    GtkWidget *win = school_dialog_new("Student Profile Details", 460, 480);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 14);
-    gtk_widget_set_margin_top(box, 24);
-    gtk_widget_set_margin_bottom(box, 24);
+    gtk_widget_set_margin_top(box, 20);
+    gtk_widget_set_margin_bottom(box, 20);
     gtk_widget_set_margin_start(box, 28);
     gtk_widget_set_margin_end(box, 28);
 
@@ -716,6 +708,7 @@ static void show_profile_dialog(StudentViewWidgets *svw, int student_id)
 
         GtkWidget *v = gtk_label_new(vals[i]);
         gtk_label_set_xalign(GTK_LABEL(v), 0.0f);
+        gtk_label_set_wrap(GTK_LABEL(v), TRUE);
         gtk_widget_set_hexpand(v, TRUE);
         gtk_box_append(GTK_BOX(row), v);
 
@@ -733,13 +726,13 @@ static void show_profile_dialog(StudentViewWidgets *svw, int student_id)
     gtk_box_append(GTK_BOX(btn_row), id_btn);
 
     GtkWidget *close_btn = gtk_button_new_with_label("Close");
-    g_signal_connect_swapped(close_btn, "clicked", G_CALLBACK(gtk_window_destroy), win);
+    g_signal_connect_swapped(close_btn, "clicked", G_CALLBACK(school_dialog_close), win);
     gtk_box_append(GTK_BOX(btn_row), close_btn);
 
     gtk_box_append(GTK_BOX(box), btn_row);
 
-    gtk_window_set_child(GTK_WINDOW(win), box);
-    gtk_window_present(GTK_WINDOW(win));
+    school_dialog_set_child(win, box);
+    school_dialog_present(win);
 }
 
 typedef struct {
@@ -759,14 +752,14 @@ static void on_confirm_delete(GtkButton *btn, gpointer user_data)
         show_status_message(dc->svw, "Failed to delete student record.", false);
     }
     refresh_student_table(dc->svw);
-    gtk_window_destroy(GTK_WINDOW(dc->dialog));
+    school_dialog_close(dc->dialog);
 }
 
 static void on_cancel_delete(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     DeleteContext *dc = (DeleteContext *)user_data;
-    gtk_window_destroy(GTK_WINDOW(dc->dialog));
+    school_dialog_close(dc->dialog);
 }
 
 static void show_delete_dialog(StudentViewWidgets *svw, int student_id, const char *name, const char *adm_no)
@@ -775,11 +768,8 @@ static void show_delete_dialog(StudentViewWidgets *svw, int student_id, const ch
     dc->svw = svw;
     dc->student_id = student_id;
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new("Confirm Deletion", 400, 180);
     dc->dialog = win;
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_title(GTK_WINDOW(win), "Confirm Deletion");
-    gtk_window_set_default_size(GTK_WINDOW(win), 400, 180);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_top(box, 20);
@@ -809,9 +799,9 @@ static void show_delete_dialog(StudentViewWidgets *svw, int student_id, const ch
     gtk_box_append(GTK_BOX(btns), del);
 
     gtk_box_append(GTK_BOX(box), btns);
-    gtk_window_set_child(GTK_WINDOW(win), box);
+    school_dialog_set_child(win, box);
     g_object_set_data_full(G_OBJECT(win), "dc", dc, g_free);
-    gtk_window_present(GTK_WINDOW(win));
+    school_dialog_present(win);
 }
 
 /* ── Student ID Card Generator ───────────────────────────────────── */
@@ -986,12 +976,9 @@ static void show_id_card_dialog(StudentViewWidgets *svw, int student_id)
     memset(&settings, 0, sizeof(settings));
     settings_service_get(&settings);
 
-    GtkWidget *win = gtk_window_new();
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
     char title_buf[256];
     snprintf(title_buf, sizeof(title_buf), "Student ID Card - %s", s.full_name);
-    gtk_window_set_title(GTK_WINDOW(win), title_buf);
-    gtk_window_set_default_size(GTK_WINDOW(win), 420, 360);
+    GtkWidget *win = school_dialog_new(title_buf, 440, 360);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 14);
     gtk_widget_set_margin_top(box, 20);
@@ -1019,7 +1006,7 @@ static void show_id_card_dialog(StudentViewWidgets *svw, int student_id)
     gtk_widget_set_margin_top(btn_box, 8);
 
     GtkWidget *close_btn = gtk_button_new_with_label("Close");
-    g_signal_connect_swapped(close_btn, "clicked", G_CALLBACK(gtk_window_destroy), win);
+    g_signal_connect_swapped(close_btn, "clicked", G_CALLBACK(school_dialog_close), win);
     gtk_box_append(GTK_BOX(btn_box), close_btn);
 
     GtkWidget *print_btn = gtk_button_new_with_label("Print ID Card");
@@ -1029,9 +1016,9 @@ static void show_id_card_dialog(StudentViewWidgets *svw, int student_id)
 
     gtk_box_append(GTK_BOX(box), btn_box);
 
-    gtk_window_set_child(GTK_WINDOW(win), box);
+    school_dialog_set_child(win, box);
     g_object_set_data_full(G_OBJECT(win), "ipc", ipc, g_free);
-    gtk_window_present(GTK_WINDOW(win));
+    school_dialog_present(win);
 }
 
 typedef struct {
@@ -1167,11 +1154,8 @@ static void show_bulk_id_cards_dialog(StudentViewWidgets *svw)
     memset(&bdd->settings, 0, sizeof(bdd->settings));
     settings_service_get(&bdd->settings);
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new("Bulk Student ID Cards - Generation & Print", 860, 620);
     bdd->dialog = win;
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_title(GTK_WINDOW(win), "Bulk Student ID Cards - Generation & Print");
-    gtk_window_set_default_size(GTK_WINDOW(win), 860, 620);
 
     GtkWidget *main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 14);
     gtk_widget_set_margin_top(main_box, 16);
@@ -1248,6 +1232,7 @@ static void show_bulk_id_cards_dialog(StudentViewWidgets *svw)
 
     /* Scrollable Cards Container */
     GtkWidget *scroll = gtk_scrolled_window_new();
+    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scroll), 340);
     gtk_widget_set_vexpand(scroll, TRUE);
     gtk_widget_set_hexpand(scroll, TRUE);
     gtk_widget_add_css_class(scroll, "card");
@@ -1272,16 +1257,16 @@ static void show_bulk_id_cards_dialog(StudentViewWidgets *svw)
     gtk_widget_set_halign(bottom_box, GTK_ALIGN_END);
 
     GtkWidget *close_btn = gtk_button_new_with_label("Close");
-    g_signal_connect_swapped(close_btn, "clicked", G_CALLBACK(gtk_window_destroy), win);
+    g_signal_connect_swapped(close_btn, "clicked", G_CALLBACK(school_dialog_close), win);
     gtk_box_append(GTK_BOX(bottom_box), close_btn);
 
     gtk_box_append(GTK_BOX(main_box), bottom_box);
 
-    gtk_window_set_child(GTK_WINDOW(win), main_box);
+    school_dialog_set_child(win, main_box);
     g_object_set_data_full(G_OBJECT(win), "bdd", bdd, g_free);
 
     refresh_bulk_cards(bdd);
-    gtk_window_present(GTK_WINDOW(win));
+    school_dialog_present(win);
 }
 
 /* ── Public Constructor ───────────────────────────────────────────── */
