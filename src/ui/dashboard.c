@@ -14,6 +14,8 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+#include "auth/auth.h"
+
 typedef struct {
     GtkWidget *scroll_window;
     GtkWidget *val_students;
@@ -29,6 +31,12 @@ typedef struct {
     GtkWidget *exams_box;
     GtkWidget *attendance_drawing_area;
     GtkWidget *fee_drawing_area;
+    GtkWidget *qa_section;
+    GtkWidget *qa_btn_student;
+    GtkWidget *qa_btn_fees;
+    GtkWidget *qa_btn_attendance;
+    GtkWidget *qa_btn_teacher;
+    GtkWidget *qa_btn_report;
 } DashboardUI;
 
 /* ── Cairo Drawing Callbacks ──────────────────────────────────────── */
@@ -268,20 +276,61 @@ void school_dashboard_refresh(GtkWidget *dashboard_widget)
     DashboardStats stats;
     dashboard_service_get_stats(&stats);
 
+    bool logged_in      = auth_is_logged_in();
+    bool can_view_stu   = logged_in && auth_current_user_can_access("STUDENTS", false);
+    bool can_view_tch   = logged_in && auth_current_user_can_access("TEACHERS", false);
+    bool can_view_cls   = logged_in && auth_current_user_can_access("CLASSES", false);
+    bool can_view_att   = logged_in && auth_current_user_can_access("ATTENDANCE", false);
+    bool can_view_fee   = logged_in && auth_current_user_can_access("FEES", false);
+    bool can_view_rep   = logged_in && auth_current_user_can_access("REPORTS", false);
+
+    bool can_edit_stu   = logged_in && auth_current_user_can_access("STUDENTS", true);
+    bool can_edit_fee   = logged_in && auth_current_user_can_access("FEES", true);
+    bool can_edit_att   = logged_in && auth_current_user_can_access("ATTENDANCE", true);
+    bool can_edit_tch   = logged_in && auth_current_user_can_access("TEACHERS", true);
+
+    if (ui->qa_btn_student)    gtk_widget_set_visible(ui->qa_btn_student, can_edit_stu);
+    if (ui->qa_btn_fees)       gtk_widget_set_visible(ui->qa_btn_fees, can_edit_fee);
+    if (ui->qa_btn_attendance) gtk_widget_set_visible(ui->qa_btn_attendance, can_edit_att);
+    if (ui->qa_btn_teacher)    gtk_widget_set_visible(ui->qa_btn_teacher, can_edit_tch);
+    if (ui->qa_btn_report)     gtk_widget_set_visible(ui->qa_btn_report, can_view_rep);
+    if (ui->qa_section) {
+        gtk_widget_set_visible(ui->qa_section,
+            can_edit_stu || can_edit_fee || can_edit_att || can_edit_tch || can_view_rep);
+    }
+
     char buf[64];
-    snprintf(buf, sizeof(buf), "%d", stats.total_students);
+    if (can_view_stu) {
+        snprintf(buf, sizeof(buf), "%d", stats.total_students);
+    } else {
+        snprintf(buf, sizeof(buf), "—");
+    }
     gtk_label_set_text(GTK_LABEL(ui->val_students), buf);
 
-    snprintf(buf, sizeof(buf), "%d", stats.total_teachers);
+    if (can_view_tch) {
+        snprintf(buf, sizeof(buf), "%d", stats.total_teachers);
+    } else {
+        snprintf(buf, sizeof(buf), "—");
+    }
     gtk_label_set_text(GTK_LABEL(ui->val_teachers), buf);
 
-    snprintf(buf, sizeof(buf), "%d", stats.total_staff);
+    if (can_view_tch) {
+        snprintf(buf, sizeof(buf), "%d", stats.total_staff);
+    } else {
+        snprintf(buf, sizeof(buf), "—");
+    }
     gtk_label_set_text(GTK_LABEL(ui->val_staff), buf);
 
-    snprintf(buf, sizeof(buf), "%d", stats.total_classes);
+    if (can_view_cls) {
+        snprintf(buf, sizeof(buf), "%d", stats.total_classes);
+    } else {
+        snprintf(buf, sizeof(buf), "—");
+    }
     gtk_label_set_text(GTK_LABEL(ui->val_classes), buf);
 
-    if (stats.today_attendance_total > 0) {
+    if (!can_view_att) {
+        snprintf(buf, sizeof(buf), "Restricted");
+    } else if (stats.today_attendance_total > 0) {
         snprintf(buf, sizeof(buf), "%.1f%% (%d/%d)",
                  stats.today_attendance_pct,
                  stats.today_attendance_present,
@@ -291,13 +340,29 @@ void school_dashboard_refresh(GtkWidget *dashboard_widget)
     }
     gtk_label_set_text(GTK_LABEL(ui->val_attendance), buf);
 
-    snprintf(buf, sizeof(buf), "₹%.2f", stats.fee_collection_this_month);
+    if (can_view_fee) {
+        snprintf(buf, sizeof(buf), "₹%.2f", stats.fee_collection_this_month);
+    } else {
+        snprintf(buf, sizeof(buf), "Restricted");
+    }
     gtk_label_set_text(GTK_LABEL(ui->val_fee_collected), buf);
 
-    snprintf(buf, sizeof(buf), "₹%.2f", stats.fee_pending_total);
+    if (can_view_fee) {
+        snprintf(buf, sizeof(buf), "₹%.2f", stats.fee_pending_total);
+    } else {
+        snprintf(buf, sizeof(buf), "Restricted");
+    }
     gtk_label_set_text(GTK_LABEL(ui->val_fee_pending), buf);
 
-    snprintf(buf, sizeof(buf), "%d", stats.new_admissions_count);
+    if (ui->fee_drawing_area) {
+        gtk_widget_set_visible(ui->fee_drawing_area, can_view_fee);
+    }
+
+    if (can_view_stu) {
+        snprintf(buf, sizeof(buf), "%d", stats.new_admissions_count);
+    } else {
+        snprintf(buf, sizeof(buf), "—");
+    }
     gtk_label_set_text(GTK_LABEL(ui->val_new_admissions), buf);
 
     /* 2. Populate Recent Admissions */
@@ -308,6 +373,11 @@ void school_dashboard_refresh(GtkWidget *dashboard_widget)
         child = next;
     }
 
+    if (!can_view_stu) {
+        GtkWidget *empty = gtk_label_new("Admissions details restricted for your role.");
+        gtk_widget_add_css_class(empty, "dim-label");
+        gtk_box_append(GTK_BOX(ui->admissions_box), empty);
+    } else {
     RecentAdmission adm[5];
     int adm_count = 0;
     dashboard_service_get_recent_admissions(adm, 5, &adm_count);
@@ -338,6 +408,7 @@ void school_dashboard_refresh(GtkWidget *dashboard_widget)
 
             gtk_box_append(GTK_BOX(ui->admissions_box), row);
         }
+    }
     }
 
     /* 3. Populate Recent Activities */
@@ -471,13 +542,20 @@ GtkWidget *school_dashboard_new(void)
 
     /* Quick Actions */
     GtkWidget *qa_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
-    gtk_box_append(GTK_BOX(qa_box), make_quick_action("list-add-symbolic", "Add Student", NAV_STUDENTS));
-    gtk_box_append(GTK_BOX(qa_box), make_quick_action("accessories-calculator-symbolic", "Collect Fees", NAV_FEES));
-    gtk_box_append(GTK_BOX(qa_box), make_quick_action("document-open-recent-symbolic", "Mark Attendance", NAV_ATTENDANCE));
-    gtk_box_append(GTK_BOX(qa_box), make_quick_action("avatar-default-symbolic", "Add Teacher", NAV_TEACHERS));
-    gtk_box_append(GTK_BOX(qa_box), make_quick_action("document-print-symbolic", "Generate Report", NAV_REPORTS));
+    ui->qa_btn_student = make_quick_action("list-add-symbolic", "Add Student", NAV_STUDENTS);
+    ui->qa_btn_fees = make_quick_action("accessories-calculator-symbolic", "Collect Fees", NAV_FEES);
+    ui->qa_btn_attendance = make_quick_action("document-open-recent-symbolic", "Mark Attendance", NAV_ATTENDANCE);
+    ui->qa_btn_teacher = make_quick_action("avatar-default-symbolic", "Add Teacher", NAV_TEACHERS);
+    ui->qa_btn_report = make_quick_action("document-print-symbolic", "Generate Report", NAV_REPORTS);
+
+    gtk_box_append(GTK_BOX(qa_box), ui->qa_btn_student);
+    gtk_box_append(GTK_BOX(qa_box), ui->qa_btn_fees);
+    gtk_box_append(GTK_BOX(qa_box), ui->qa_btn_attendance);
+    gtk_box_append(GTK_BOX(qa_box), ui->qa_btn_teacher);
+    gtk_box_append(GTK_BOX(qa_box), ui->qa_btn_report);
 
     GtkWidget *qa_section = make_section("Quick Actions", qa_box);
+    ui->qa_section = qa_section;
     gtk_box_append(GTK_BOX(main_box), qa_section);
 
     /* Charts Row with Cairo Drawing Areas */
