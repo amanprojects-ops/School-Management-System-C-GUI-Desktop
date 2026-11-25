@@ -193,4 +193,9 @@ bool auth_set_role_permission(int role_id, const char *module_name, bool can_vie
  */
 bool auth_user_can_access(int user_id, const char *module_name, bool require_edit);
 
+/**
+ * @brief Check if the currently authenticated session user has view/edit permission for a module.
+ */
+bool auth_current_user_can_access(const char *module_name, bool require_edit);
+
 #endif /* SCHOOLCMS_AUTH_H */
