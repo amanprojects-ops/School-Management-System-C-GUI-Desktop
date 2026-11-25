@@ -57,6 +57,42 @@ static const char *page_titles[NAV_PAGE_COUNT] = {
 
 /* ── Callbacks ────────────────────────────────────────────────────── */
 
+static GtkWidget *status_bar_label = NULL;
+
+const char *school_window_page_module(NavPage page)
+{
+    switch (page) {
+        case NAV_STUDENTS:   return "STUDENTS";
+        case NAV_TEACHERS:   return "TEACHERS";
+        case NAV_CLASSES:    return "CLASSES";
+        case NAV_ATTENDANCE: return "ATTENDANCE";
+        case NAV_FEES:       return "FEES";
+        case NAV_EXAMS:      return "EXAMS";
+        case NAV_TIMETABLE:  return "TIMETABLE";
+        case NAV_REPORTS:    return "REPORTS";
+        case NAV_SETTINGS:   return "SETTINGS";
+        case NAV_DASHBOARD:
+        default:
+            return NULL;
+    }
+}
+
+static void update_status_bar_session(void)
+{
+    if (!status_bar_label)
+        return;
+
+    const UserSession *sess = auth_get_session();
+    if (sess && sess->full_name[0] != '\0') {
+        char buf[256];
+        g_snprintf(buf, sizeof(buf), "APCOACHING  •  %s (%s)",
+                   sess->full_name, sess->role_name);
+        gtk_label_set_text(GTK_LABEL(status_bar_label), buf);
+    } else {
+        gtk_label_set_text(GTK_LABEL(status_bar_label), "APCOACHING  •  Not Logged In");
+    }
+}
+
 static void on_login_success(gpointer user_data)
 {
     (void)user_data;
@@ -64,6 +100,8 @@ static void on_login_success(gpointer user_data)
     if (sess) {
         school_header_update_user(sess->full_name, sess->role_name);
     }
+    school_sidebar_apply_permissions();
+    update_status_bar_session();
     school_window_show_app();
     school_window_navigate(NAV_DASHBOARD);
 }
@@ -202,6 +240,7 @@ void school_window_new(GtkApplication *app)
     gtk_widget_add_css_class(status_bar, "status-bar");
 
     GtkWidget *status_label = gtk_label_new("APCOACHING v1.1.6  •  Authenticated");
+    status_bar_label = status_label;
     gtk_widget_set_halign(status_label, GTK_ALIGN_START);
     gtk_widget_set_hexpand(status_label, TRUE);
     gtk_label_set_ellipsize(GTK_LABEL(status_label), PANGO_ELLIPSIZE_END);
@@ -216,10 +255,18 @@ void school_window_new(GtkApplication *app)
 
     gtk_stack_add_named(root_stack, app_box, "app");
 
+    school_sidebar_apply_permissions();
+
     /* Initial state: if authenticated show app, else show login */
     if (auth_is_logged_in()) {
+        const UserSession *sess = auth_get_session();
+        if (sess) {
+            school_header_update_user(sess->full_name, sess->role_name);
+        }
+        update_status_bar_session();
         school_window_show_app();
     } else {
+        update_status_bar_session();
         school_window_show_login();
     }
 
@@ -243,10 +290,58 @@ void school_window_show_app(void)
     }
 }
 
+static void show_access_denied_dialog(const char *page_title)
+{
+    GtkWidget *dlg = school_dialog_new("Access Denied", 420, 210);
+    if (!dlg)
+        return;
+
+    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 14);
+    gtk_widget_set_margin_start(vbox, 20);
+    gtk_widget_set_margin_end(vbox, 20);
+    gtk_widget_set_margin_top(vbox, 18);
+    gtk_widget_set_margin_bottom(vbox, 18);
+
+    const UserSession *sess = auth_get_session();
+    const char *role = (sess && sess->role_name[0] != '\0') ? sess->role_name : "Current role";
+    char msg[256];
+    g_snprintf(msg, sizeof(msg),
+               "%s does not have permission to view \"%s\".\n"
+               "Ask an administrator to grant view access in Settings.",
+               role, page_title ? page_title : "this module");
+
+    GtkWidget *lbl = gtk_label_new(msg);
+    gtk_label_set_wrap(GTK_LABEL(lbl), TRUE);
+    gtk_label_set_xalign(GTK_LABEL(lbl), 0.0f);
+    gtk_box_append(GTK_BOX(vbox), lbl);
+
+    GtkWidget *btn_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_widget_set_halign(btn_box, GTK_ALIGN_END);
+    GtkWidget *ok_btn = gtk_button_new_with_label("OK");
+    gtk_widget_add_css_class(ok_btn, "btn-primary");
+    g_signal_connect_swapped(ok_btn, "clicked", G_CALLBACK(school_dialog_close), dlg);
+    gtk_box_append(GTK_BOX(btn_box), ok_btn);
+    gtk_box_append(GTK_BOX(vbox), btn_box);
+
+    school_dialog_set_child(dlg, vbox);
+    school_dialog_present(dlg);
+}
+
 void school_window_navigate(NavPage page)
 {
     if (page < 0 || page >= NAV_PAGE_COUNT || content_stack == NULL)
         return;
+
+    const char *mod = school_window_page_module(page);
+    if (mod != NULL && (!auth_is_logged_in() || !auth_current_user_can_access(mod, false))) {
+        if (auth_is_logged_in()) {
+            show_access_denied_dialog(page_titles[page]);
+        }
+        if (page != NAV_DASHBOARD) {
+            school_window_navigate(NAV_DASHBOARD);
+        }
+        return;
+    }
 
     gtk_stack_set_visible_child_name(content_stack, page_names[page]);
     school_header_set_breadcrumb(page_titles[page]);
