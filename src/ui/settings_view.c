@@ -5,6 +5,7 @@
  */
 
 #include "ui/settings_view.h"
+#include "ui/dialog.h"
 #include "settings.h"
 #include "classes.h"
 #include "auth/auth.h"
@@ -382,8 +383,7 @@ static void on_confirm_admin_reset_clicked(GtkButton *btn, gpointer user_data)
         gtk_widget_add_css_class(ard->sw->status_banner, "card-kpi-green");
         gtk_widget_set_visible(ard->sw->status_banner, TRUE);
         refresh_audit_logs(ard->sw);
-        gtk_window_destroy(GTK_WINDOW(ard->dialog));
-        g_free(ard);
+        school_dialog_close(ard->dialog);
     } else {
         gtk_label_set_text(GTK_LABEL(ard->lbl_err), "Failed to reset password in database.");
         gtk_widget_set_visible(ard->lbl_err, TRUE);
@@ -394,8 +394,7 @@ static void on_cancel_admin_reset_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     AdminResetData *ard = (AdminResetData *)user_data;
-    gtk_window_destroy(GTK_WINDOW(ard->dialog));
-    g_free(ard);
+    school_dialog_close(ard->dialog);
 }
 
 static void on_row_user_reset_pwd_clicked(GtkButton *btn, gpointer user_data)
@@ -409,18 +408,15 @@ static void on_row_user_reset_pwd_clicked(GtkButton *btn, gpointer user_data)
     ard->target_user_id = uid;
     strncpy(ard->target_username, uname ? uname : "user", sizeof(ard->target_username) - 1);
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new("Admin Password Override", 420, 280);
     ard->dialog = win;
-    gtk_window_set_title(GTK_WINDOW(win), "Admin Password Override");
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(win), 420, 260);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
     gtk_widget_set_margin_start(box, 24);
     gtk_widget_set_margin_end(box, 24);
     gtk_widget_set_margin_top(box, 20);
     gtk_widget_set_margin_bottom(box, 20);
-    gtk_window_set_child(GTK_WINDOW(win), box);
+    school_dialog_set_child(win, box);
 
     char title_buf[128];
     snprintf(title_buf, sizeof(title_buf), "Reset Password for: %s", ard->target_username);
@@ -462,7 +458,8 @@ static void on_row_user_reset_pwd_clicked(GtkButton *btn, gpointer user_data)
     gtk_box_append(GTK_BOX(btns), btn_confirm);
 
     gtk_box_append(GTK_BOX(box), btns);
-    gtk_window_present(GTK_WINDOW(win));
+    g_object_set_data_full(G_OBJECT(win), "ard", ard, g_free);
+    school_dialog_present(win);
 }
 
 static void on_row_user_toggle_status_clicked(GtkButton *btn, gpointer user_data)
@@ -512,8 +509,7 @@ static void on_cancel_add_user_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     AddUserData *aud = (AddUserData *)user_data;
-    gtk_window_destroy(GTK_WINDOW(aud->dialog));
-    g_free(aud);
+    school_dialog_close(aud->dialog);
 }
 
 static void on_confirm_add_user_clicked(GtkButton *btn, gpointer user_data)
@@ -546,8 +542,7 @@ static void on_confirm_add_user_clicked(GtkButton *btn, gpointer user_data)
         gtk_widget_set_visible(aud->sw->status_banner, TRUE);
         refresh_users_list(aud->sw);
         refresh_audit_logs(aud->sw);
-        gtk_window_destroy(GTK_WINDOW(aud->dialog));
-        g_free(aud);
+        school_dialog_close(aud->dialog);
     } else {
         gtk_label_set_text(GTK_LABEL(aud->lbl_err), "Error: Username or email may already exist in database.");
         gtk_widget_set_visible(aud->lbl_err, TRUE);
@@ -562,18 +557,15 @@ static void on_add_new_user_clicked(GtkButton *btn, gpointer user_data)
     AddUserData *aud = g_new0(AddUserData, 1);
     aud->sw = sw;
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new("Create System User Account", 460, 520);
     aud->dialog = win;
-    gtk_window_set_title(GTK_WINDOW(win), "Create System User Account");
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(win), 460, 420);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
     gtk_widget_set_margin_start(box, 24);
     gtk_widget_set_margin_end(box, 24);
     gtk_widget_set_margin_top(box, 20);
     gtk_widget_set_margin_bottom(box, 20);
-    gtk_window_set_child(GTK_WINDOW(win), box);
+    school_dialog_set_child(win, box);
 
     GtkWidget *lbl_t = gtk_label_new("Register New Institutional User");
     gtk_widget_add_css_class(lbl_t, "card-title");
@@ -641,7 +633,8 @@ static void on_add_new_user_clicked(GtkButton *btn, gpointer user_data)
     gtk_box_append(GTK_BOX(btns), btn_confirm);
 
     gtk_box_append(GTK_BOX(box), btns);
-    gtk_window_present(GTK_WINDOW(win));
+    g_object_set_data_full(G_OBJECT(win), "aud", aud, g_free);
+    school_dialog_present(win);
 }
 
 static void refresh_users_list(SettingsWidgets *sw)
@@ -837,8 +830,7 @@ static void on_cancel_action_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     BackupActionData *bad = (BackupActionData *)user_data;
-    gtk_window_destroy(GTK_WINDOW(bad->dialog));
-    g_free(bad);
+    school_dialog_close(bad->dialog);
 }
 
 static void on_confirm_restore_clicked(GtkButton *btn, gpointer user_data)
@@ -868,8 +860,7 @@ static void on_confirm_restore_clicked(GtkButton *btn, gpointer user_data)
         gtk_widget_set_visible(sw->status_banner, TRUE);
     }
 
-    gtk_window_destroy(GTK_WINDOW(bad->dialog));
-    g_free(bad);
+    school_dialog_close(bad->dialog);
 }
 
 static void on_confirm_delete_clicked(GtkButton *btn, gpointer user_data)
@@ -895,8 +886,7 @@ static void on_confirm_delete_clicked(GtkButton *btn, gpointer user_data)
         gtk_widget_set_visible(sw->status_banner, TRUE);
     }
 
-    gtk_window_destroy(GTK_WINDOW(bad->dialog));
-    g_free(bad);
+    school_dialog_close(bad->dialog);
 }
 
 static void on_row_restore_clicked(GtkButton *btn, gpointer user_data)
@@ -911,18 +901,15 @@ static void on_row_restore_clicked(GtkButton *btn, gpointer user_data)
     strncpy(bad->filepath, fpath, sizeof(bad->filepath) - 1);
     strncpy(bad->filename, fname ? fname : fpath, sizeof(bad->filename) - 1);
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new("Confirm Database Restore", 460, 220);
     bad->dialog = win;
-    gtk_window_set_title(GTK_WINDOW(win), "Confirm Database Restore");
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(win), 460, 220);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_start(box, 24);
     gtk_widget_set_margin_end(box, 24);
     gtk_widget_set_margin_top(box, 20);
     gtk_widget_set_margin_bottom(box, 20);
-    gtk_window_set_child(GTK_WINDOW(win), box);
+    school_dialog_set_child(win, box);
 
     GtkWidget *lbl_warn = gtk_label_new("Warning: Restoring Database Snapshot");
     gtk_widget_add_css_class(lbl_warn, "card-title");
@@ -953,7 +940,8 @@ static void on_row_restore_clicked(GtkButton *btn, gpointer user_data)
     gtk_box_append(GTK_BOX(btns), btn_confirm);
 
     gtk_box_append(GTK_BOX(box), btns);
-    gtk_window_present(GTK_WINDOW(win));
+    g_object_set_data_full(G_OBJECT(win), "bad", bad, g_free);
+    school_dialog_present(win);
 }
 
 static void on_row_delete_clicked(GtkButton *btn, gpointer user_data)
@@ -968,18 +956,15 @@ static void on_row_delete_clicked(GtkButton *btn, gpointer user_data)
     strncpy(bad->filepath, fpath, sizeof(bad->filepath) - 1);
     strncpy(bad->filename, fname ? fname : fpath, sizeof(bad->filename) - 1);
 
-    GtkWidget *win = gtk_window_new();
+    GtkWidget *win = school_dialog_new("Confirm Backup Deletion", 440, 180);
     bad->dialog = win;
-    gtk_window_set_title(GTK_WINDOW(win), "Confirm Backup Deletion");
-    gtk_window_set_modal(GTK_WINDOW(win), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(win), 440, 180);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_start(box, 24);
     gtk_widget_set_margin_end(box, 24);
     gtk_widget_set_margin_top(box, 20);
     gtk_widget_set_margin_bottom(box, 20);
-    gtk_window_set_child(GTK_WINDOW(win), box);
+    school_dialog_set_child(win, box);
 
     GtkWidget *lbl_warn = gtk_label_new("Delete Backup File");
     gtk_widget_add_css_class(lbl_warn, "card-title");
@@ -1009,7 +994,8 @@ static void on_row_delete_clicked(GtkButton *btn, gpointer user_data)
     gtk_box_append(GTK_BOX(btns), btn_confirm);
 
     gtk_box_append(GTK_BOX(box), btns);
-    gtk_window_present(GTK_WINDOW(win));
+    g_object_set_data_full(G_OBJECT(win), "bad", bad, g_free);
+    school_dialog_present(win);
 }
 
 static void on_create_backup_clicked(GtkButton *btn, gpointer user_data)
