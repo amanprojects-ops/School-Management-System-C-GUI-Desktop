@@ -27,6 +27,7 @@ typedef struct {
     GtkWidget *preview_box;
     GtkWidget *summary_box;
     GtkWidget *summary_label;
+    GtkWidget *export_btn;
     GtkWidget *status_banner;
 
     /* Category Buttons */
@@ -169,6 +170,13 @@ static void on_export_csv_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     ReportsWidgets *rw = (ReportsWidgets *)user_data;
+    if (!auth_current_user_can_access("REPORTS", true)) {
+        gtk_label_set_text(GTK_LABEL(rw->status_banner), "Read-only access: your role cannot export CSV reports.");
+        gtk_widget_remove_css_class(rw->status_banner, "card-kpi-green");
+        gtk_widget_add_css_class(rw->status_banner, "card-kpi-red");
+        gtk_widget_set_visible(rw->status_banner, TRUE);
+        return;
+    }
 
     MKDIR("exports");
 
@@ -204,14 +212,68 @@ static void on_export_csv_clicked(GtkButton *btn, gpointer user_data)
 
 /* ── Report Generation and Table Preview ──────────────────────────── */
 
+static const char *report_category_module(int cat)
+{
+    switch (cat) {
+        case 0: return "STUDENTS";
+        case 1: return "ATTENDANCE";
+        case 2:
+        case 3: return "FEES";
+        case 4: return "TEACHERS";
+        case 5: return "EXAMS";
+        default: return NULL;
+    }
+}
+
 static void refresh_report(ReportsWidgets *rw)
 {
+    gboolean can_export = auth_current_user_can_access("REPORTS", true);
+    if (rw->export_btn) {
+        gtk_widget_set_visible(rw->export_btn, can_export);
+    }
+
+    int first_allowed = -1;
+    gboolean current_allowed = FALSE;
+    for (int i = 0; i < REPORT_TYPE_COUNT; i++) {
+        const char *cat_mod = report_category_module(i);
+        gboolean allowed = auth_is_logged_in() &&
+                           auth_current_user_can_access("REPORTS", false) &&
+                           (!cat_mod || auth_current_user_can_access(cat_mod, false));
+        if (rw->cat_buttons[i]) {
+            gtk_widget_set_visible(rw->cat_buttons[i], allowed);
+        }
+        if (allowed) {
+            if (first_allowed < 0) first_allowed = i;
+            if ((int)rw->active_category == i) current_allowed = TRUE;
+        }
+    }
+
+    if (!current_allowed && first_allowed >= 0) {
+        if (rw->cat_buttons[rw->active_category]) {
+            gtk_widget_remove_css_class(rw->cat_buttons[rw->active_category], "tab-btn-active");
+        }
+        rw->active_category = (ReportType)first_allowed;
+        if (rw->cat_buttons[first_allowed]) {
+            gtk_widget_add_css_class(rw->cat_buttons[first_allowed], "tab-btn-active");
+        }
+        current_allowed = TRUE;
+    }
+
     /* Clear table preview */
     GtkWidget *child = gtk_widget_get_first_child(rw->preview_box);
     while (child) {
         GtkWidget *next = gtk_widget_get_next_sibling(child);
         gtk_box_remove(GTK_BOX(rw->preview_box), child);
         child = next;
+    }
+
+    if (!current_allowed) {
+        rw->current_data.row_count = 0;
+        if (rw->export_btn) gtk_widget_set_visible(rw->export_btn, FALSE);
+        GtkWidget *denied = gtk_label_new("No report categories are permitted for your current role.");
+        gtk_widget_add_css_class(denied, "dim-label");
+        gtk_box_append(GTK_BOX(rw->preview_box), denied);
+        return;
     }
 
     ReportFilter f;
@@ -336,6 +398,7 @@ GtkWidget *school_reports_view_new(void)
     gtk_box_append(GTK_BOX(hdr), spacer);
 
     GtkWidget *export_btn = gtk_button_new_with_label("Export to CSV");
+    rw->export_btn = export_btn;
     gtk_widget_add_css_class(export_btn, "btn-primary");
     g_signal_connect(export_btn, "clicked", G_CALLBACK(on_export_csv_clicked), rw);
     gtk_box_append(GTK_BOX(hdr), export_btn);
