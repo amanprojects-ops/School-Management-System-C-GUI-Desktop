@@ -104,7 +104,7 @@ static void on_tab_exams_clicked(GtkButton *btn, gpointer user_data)
     gtk_widget_remove_css_class(evw->tab_marks_btn, "tab-btn-active");
     gtk_widget_remove_css_class(evw->tab_reports_btn, "tab-btn-active");
     gtk_widget_remove_css_class(evw->tab_ranks_btn, "tab-btn-active");
-    gtk_widget_set_visible(evw->primary_action_btn, TRUE);
+    gtk_widget_set_visible(evw->primary_action_btn, auth_current_user_can_access("EXAMS", true));
     gtk_button_set_label(GTK_BUTTON(evw->primary_action_btn), "+ Create Exam");
     refresh_view(evw);
 }
@@ -155,6 +155,10 @@ static void on_primary_action_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     ExamsViewWidgets *evw = (ExamsViewWidgets *)user_data;
+    if (!auth_current_user_can_access("EXAMS", true)) {
+        show_status_message(evw, "Read-only access: your role cannot create or schedule exams.", false);
+        return;
+    }
     if (evw->current_tab == TAB_EXAMS) {
         show_add_exam_dialog(evw);
     }
@@ -165,6 +169,10 @@ static void on_primary_action_clicked(GtkButton *btn, gpointer user_data)
 static void on_schedule_subject_clicked(GtkButton *btn, gpointer user_data)
 {
     ExamsViewWidgets *evw = (ExamsViewWidgets *)g_object_get_data(G_OBJECT(btn), "evw");
+    if (!auth_current_user_can_access("EXAMS", true)) {
+        show_status_message(evw, "Read-only access: your role cannot schedule exam subjects.", false);
+        return;
+    }
     int exam_id = GPOINTER_TO_INT(user_data);
     show_schedule_subject_dialog(evw, exam_id);
 }
@@ -289,10 +297,13 @@ static void render_exams_tab(ExamsViewWidgets *evw)
         gtk_box_append(GTK_BOX(header_row), st_lbl);
 
         /* Actions: Schedule Subject, Delete */
+        gboolean can_edit = auth_current_user_can_access("EXAMS", true);
+
         GtkWidget *sched_btn = gtk_button_new_with_label("+ Schedule Subject");
         gtk_widget_add_css_class(sched_btn, "btn-secondary");
         g_object_set_data(G_OBJECT(sched_btn), "evw", evw);
         g_signal_connect(sched_btn, "clicked", G_CALLBACK(on_schedule_subject_clicked), GINT_TO_POINTER(ex->id));
+        gtk_widget_set_visible(sched_btn, can_edit);
         gtk_box_append(GTK_BOX(header_row), sched_btn);
 
         GtkWidget *del_btn = gtk_button_new_with_label("Delete");
@@ -300,6 +311,7 @@ static void render_exams_tab(ExamsViewWidgets *evw)
         g_object_set_data(G_OBJECT(del_btn), "evw", evw);
         g_object_set_data_full(G_OBJECT(del_btn), "exam_name", g_strdup(ex->name), g_free);
         g_signal_connect(del_btn, "clicked", G_CALLBACK(on_delete_exam_clicked), GINT_TO_POINTER(ex->id));
+        gtk_widget_set_visible(del_btn, can_edit);
         gtk_box_append(GTK_BOX(header_row), del_btn);
 
         gtk_box_append(GTK_BOX(card), header_row);
@@ -426,6 +438,10 @@ static void on_save_marks_clicked(GtkButton *btn, gpointer user_data)
 {
     (void)btn;
     ExamsViewWidgets *evw = (ExamsViewWidgets *)user_data;
+    if (!auth_current_user_can_access("EXAMS", true)) {
+        show_status_message(evw, "Read-only access: your role cannot modify exam marks.", false);
+        return;
+    }
     if (evw->sheet_count == 0 || evw->selected_exam_subject_id <= 0) return;
 
     for (int i = 0; i < evw->sheet_count; i++) {
@@ -527,11 +543,14 @@ static void render_marks_roster(ExamsViewWidgets *evw)
         gtk_box_append(GTK_BOX(row), name_lbl);
 
         /* Marks Input */
+        gboolean can_edit = auth_current_user_can_access("EXAMS", true);
         GtkWidget *entry_m = gtk_entry_new();
         gtk_widget_set_size_request(entry_m, widths[3], -1);
         char m_buf[32];
         snprintf(m_buf, sizeof(m_buf), "%.1f", r->marks_obtained);
         gtk_editable_set_text(GTK_EDITABLE(entry_m), m_buf);
+        gtk_editable_set_editable(GTK_EDITABLE(entry_m), can_edit);
+        gtk_widget_set_sensitive(entry_m, can_edit);
         gtk_box_append(GTK_BOX(row), entry_m);
 
         /* Grade */
@@ -551,6 +570,8 @@ static void render_marks_roster(ExamsViewWidgets *evw)
         GtkWidget *entry_rm = gtk_entry_new();
         gtk_widget_set_size_request(entry_rm, widths[6], -1);
         gtk_editable_set_text(GTK_EDITABLE(entry_rm), r->remarks);
+        gtk_editable_set_editable(GTK_EDITABLE(entry_rm), can_edit);
+        gtk_widget_set_sensitive(entry_rm, can_edit);
         gtk_box_append(GTK_BOX(row), entry_rm);
 
         /* Bind to row widgets for save action */
@@ -630,6 +651,7 @@ static void render_marks_tab(ExamsViewWidgets *evw)
     gtk_widget_add_css_class(evw->btn_save_marks, "btn-primary");
     gtk_widget_set_valign(evw->btn_save_marks, GTK_ALIGN_END);
     g_signal_connect(evw->btn_save_marks, "clicked", G_CALLBACK(on_save_marks_clicked), evw);
+    gtk_widget_set_visible(evw->btn_save_marks, auth_current_user_can_access("EXAMS", true));
     gtk_box_append(GTK_BOX(ctrl_bar), evw->btn_save_marks);
 
     gtk_box_append(GTK_BOX(evw->content_container), ctrl_bar);
@@ -912,6 +934,11 @@ static void render_ranks_table(ExamsViewWidgets *evw, GtkWidget *container)
 
 static void refresh_view(ExamsViewWidgets *evw)
 {
+    gboolean can_edit = auth_current_user_can_access("EXAMS", true);
+    if (evw->primary_action_btn) {
+        gtk_widget_set_visible(evw->primary_action_btn, can_edit && evw->current_tab == TAB_EXAMS);
+    }
+
     /* Clear content container */
     GtkWidget *c = gtk_widget_get_first_child(evw->content_container);
     while (c) {
