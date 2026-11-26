@@ -8,7 +8,21 @@
 [![Test Suite](https://img.shields.io/badge/Tests-13%2F13%20Passed%20(100%25)-2ea44f.svg)](run_tests.sh)
 [![Release](https://img.shields.io/badge/Release-v1.2.0-brightgreen.svg)](dist/)
 
-A modern, high-performance, offline-first institutional **School Management System** desktop application developed in pure **C (C11)**, **GTK4**, and **SQLite3** for Windows 10 and 11. Designed following enterprise SaaS visual standards, featuring real-time analytics, automated student and faculty rostering, conflict-free timetable scheduling, comprehensive fee accounting, examination grading, RFC 4180 CSV reporting, and online SQLite disaster recovery.
+A modern, high-performance, offline-first institutional **School Management System** desktop application developed in pure **C (C11)**, **GTK4**, and **SQLite3** for Windows 10 and 11. Designed following enterprise SaaS visual standards, featuring real-time analytics, automated student and faculty rostering, conflict-free timetable scheduling, comprehensive fee accounting, examination grading, RFC 4180 CSV reporting, role-based access control (RBAC), and online SQLite disaster recovery.
+
+<p align="center">
+  <a href="#application-preview">Preview Gallery</a> •
+  <a href="#documentation-library">Documentation Library</a> •
+  <a href="#quick-start-guide">Quick Start</a> •
+  <a href="#core-capabilities--features">Core Capabilities</a> •
+  <a href="#technology-stack">Tech Stack</a>
+</p>
+
+<p align="center">
+  <img src="App_Preview/App_Dashboard.jpg" alt="APCOACHING Executive Analytics Dashboard" width="95%" />
+  <br />
+  <em>Executive Analytics Dashboard — Real-time KPI cards, Quick Actions bar, Cairo 2D attendance &amp; revenue charts, and live SQLite WAL audit stream</em>
+</p>
 
 ---
 
@@ -74,39 +88,129 @@ On first launch, SQLite automatically runs all schema migrations and creates def
 
 ---
 
+## Application Preview
+
+Explore every module across the daily institutional workflow — from role-based login to printable report cards, RFC 4180 CSV exports, and disaster recovery.
+
+### 1. Authentication, Students & Faculty
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <strong>Role-Based Login Gate</strong><br />
+      <img src="App_Preview/login_page.jpg" alt="Login Screen" width="100%" /><br />
+      <sub>PBKDF2-HMAC-SHA256 authentication with per-user salting, account status checks, and 5-attempt brute-force lockout protection.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <strong>Student Directory</strong><br />
+      <img src="App_Preview/Student%20Dashboard.jpg" alt="Student Directory" width="100%" /><br />
+      <sub>Searchable student roster with gender/status filters, auto-generated admission IDs (<code>ADM-YYYY-XXXX</code>), ID card tools, and confirmation banners.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <strong>In-App Student Registration Modal</strong><br />
+      <img src="App_Preview/Student_Registration_page.jpg" alt="Enroll New Student Modal" width="100%" /><br />
+      <sub>Centered, window-clamped modal overlay form with automatic scrolling, guardian records, and dynamic class/section assignment.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <strong>Teacher &amp; Staff Directory</strong><br />
+      <img src="App_Preview/Teacher%20Dashboard.jpg" alt="Teacher & Staff Directory" width="100%" /><br />
+      <sub>Dual-tab personnel hub (<code>Faculty Teachers</code> &amp; <code>Support &amp; Admin Staff</code>) with employee codes, subject allocation, salary, and status filtering.</sub>
+    </td>
+  </tr>
+</table>
+
+### 2. Academic Structure, Attendance & Timetable
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <strong>Classes &amp; Sections</strong><br />
+      <img src="App_Preview/Class%20Dashboard.jpg" alt="Classes & Sections Dashboard" width="100%" /><br />
+      <sub>Organize academic years, grade capacities, nested class sections, and class teacher mappings from one unified view.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <strong>Subjects &amp; Faculty Mapping</strong><br />
+      <img src="App_Preview/SUBJECT%20DASHBOARD.jpg" alt="Subjects & Faculty Dashboard" width="100%" /><br />
+      <sub>Curriculum registry linking subject codes to target classes and assigned faculty members with inline edit/delete controls.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <strong>Daily &amp; Monthly Attendance</strong><br />
+      <img src="App_Preview/Attendance%20Dashboard.jpg" alt="Attendance Management Dashboard" width="100%" /><br />
+      <sub>Class/section daily sheet with one-click <code>Mark All Present</code> / <code>Mark All Absent</code> bulk actions, remarks, monthly registers, and analytics.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <strong>Timetable &amp; Weekly Schedules</strong><br />
+      <img src="App_Preview/Timetable%20Schedule%20Dashboard.jpg" alt="Timetable Schedule Dashboard" width="100%" /><br />
+      <sub>Class timetable and per-faculty weekly schedule views showing period timings, rooms, and conflict-free slot allocation.</sub>
+    </td>
+  </tr>
+</table>
+
+### 3. Fee Accounting & Examinations
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <strong>Fee Collection &amp; Payment Receipts</strong><br />
+      <img src="App_Preview/Tuition%20Fee%20Collection%20Dashboard.jpg" alt="Fee Collection Dashboard" width="100%" /><br />
+      <sub>Live student due summary, multi-mode payments (Cash, UPI, Bank, Cheque), concession/late-fine entry, and instant receipt printing.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <strong>Fee Structure Configuration</strong><br />
+      <img src="App_Preview/Tuition%20Fee%20Dashboard.jpg" alt="Add Fee Structure Modal" width="100%" /><br />
+      <sub>Create and manage class-wise tuition and recurring fee categories with standardized billing amounts and due dates.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <strong>Examinations &amp; Subject Schedules</strong><br />
+      <img src="App_Preview/Exam%20Dashboard.jpg" alt="Examinations Dashboard" width="100%" /><br />
+      <sub>Manage exam windows, subject exam dates, max/pass marks thresholds, batch marks entry, and merit rankings.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <strong>Official Student Report Card</strong><br />
+      <img src="App_Preview/View%20Report%20Card%20.jpg" alt="Official Student Report Card" width="100%" /><br />
+      <sub>Printable academic marksheet with subject-wise marks, automatic grades (<code>A+</code> to <code>F</code>), class rank, promotion status, and signatures.</sub>
+    </td>
+  </tr>
+</table>
+
+### 4. Reports Export & System Administration
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <strong>Reports &amp; RFC 4180 CSV Export</strong><br />
+      <img src="App_Preview/report%20%26%20export%20data.jpg" alt="Reports & Data Export" width="100%" /><br />
+      <sub>Six filterable report datasets (Students, Attendance, Fee Collections, Pending Dues, Faculty, Exam Results) with UTF-8 BOM Excel-safe CSV export.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <strong>Settings &amp; System Manager</strong><br />
+      <img src="App_Preview/Setting%20%26%20System%20Manager.jpg" alt="Settings & System Administration" width="100%" /><br />
+      <sub>Seven-tab admin suite: Organization Profile, Security, Email SMTP Gateway, Users &amp; Roles, Role Permissions Matrix, Backup/Restore, and Audit Logs.</sub>
+    </td>
+  </tr>
+</table>
+
+---
+
 ## Core Capabilities & Features
 
-```
-+-----------------------------------------------------------------------------------------+
-|                                    SchoolCMS Desktop Shell                              |
-+-------------------+---------------------------------------------------------------------+
-| [Logo] APCOACHING |  [ Search... ]           [ Notifications (0) ]   [ Admin (ADMINISTRATOR) ] |
-+-------------------+---------------------------------------------------------------------+
-| [o] Dashboard     |  +----------------+ +----------------+ +----------------+ +-----------+ |
-| [o] Students      |  | Total Students | | Total Teachers | | Total Staff    | | Classes   | |
-| [o] Teachers      |  | 248            | | 18             | | 12             | | 8         | |
-| [o] Classes       |  +----------------+ +----------------+ +----------------+ +-----------+ |
-| [o] Attendance    |                                                                         |
-| [o] Fees          |  +---------------------------+  +-------------------------------------+ |
-| [o] Exams         |  | Weekly Attendance (Cairo) |  | 6-Month Fee Revenue Trend (Cairo)   | |
-| [o] Timetable     |  | [|||||||] Mon-Sat Avg 92% |  | [---/---] Monthly INR Inflow        | |
-| [o] Reports       |  +---------------------------+  +-------------------------------------+ |
-| [o] Settings      |                                                                         |
-|                   |  Quick Actions: [+ Student]  [Collect Fee]  [Mark Attendance]  [Report] |
-| v1.2.0            |  Recent Institutional Audit Activity (Live SQLite WAL Stream)           |
-+-------------------+---------------------------------------------------------------------+
-```
-
-- **Modern SaaS UI:** Responsive layout with auto-screen adaptation, dark/light theme, and Cairo 2D charts.
+- **Modern SaaS UI:** Responsive layout with auto-screen adaptation, dark/light theme, in-window bounded modal overlays, and Cairo 2D charts.
+- **Role-Based Access Control (RBAC):** Granular per-module `can_view` / `can_edit` enforcement across sidebar navigation, page routing, dashboard cards, and view actions.
 - **Student Lifecycle:** Auto admission codes (`ADM-YYYY-XXXX`), class rostering, profile cards, and bulk ID card printing.
 - **Faculty & Staff:** Teacher and non-teaching staff directories with automated payroll records and search.
-- **Academic Structure:** 12 classes with dynamic section mappings and real-time capacity enforcement.
-- **Attendance Registers:** Daily classroom marking with one-click toggles and monthly aggregated registers.
-- **Institutional Fees:** Fee structures, receipt numbering (`RCP-YYYY-XXXX`), multi-mode payments (Cash, UPI, Cheque), and dues ledger.
-- **Examinations & Grading:** Standard automated grading scale (A+ to F), marks entry sheets, and printable report cards.
+- **Academic Structure:** Dynamic classes, sections, subjects, and academic years with real-time capacity tracking.
+- **Attendance Registers:** Daily classroom marking with one-click bulk toggles and monthly aggregated registers.
+- **Institutional Fees:** Fee structures, receipt numbering (`RCP-YYYY-XXXX`), multi-mode payments (Cash, UPI, Bank, Cheque), and dues ledger.
+- **Examinations & Grading:** Standard automated grading scale (A+ to F), marks entry sheets, merit ranks, and printable report cards.
 - **Timetable Scheduling:** Weekly period matrix with real-time double-booking prevention for teachers and classrooms.
 - **Reports & RFC 4180 CSV:** 6 standard institutional reports with UTF-8 BOM encoding for native Microsoft Excel compatibility.
-- **Security & Backups:** PBKDF2 authentication, 5-attempt brute-force lockout, and live hot SQLite online snapshots with one-click restore.
+- **Security & Backups:** PBKDF2 authentication, 5-attempt brute-force lockout, Email SMTP gateway, and live hot SQLite online snapshots with one-click restore.
 
 ---
 
