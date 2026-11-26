@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(APCOACHING VERSION 1.1.6 LANGUAGES C)
+project(APCOACHING VERSION 1.2.0 LANGUAGES C)
 
 # C11 standard
 set(CMAKE_C_STANDARD 11)
