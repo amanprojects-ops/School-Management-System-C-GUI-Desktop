@@ -16,6 +16,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#ifdef __ANDROID__
+#include <sys/time.h>
+#endif
 
 /* ── Portable String & Buffer Helpers ─────────────────────────────── */
 
@@ -1092,10 +1095,17 @@ long long sync_core_now_ms(void)
         }
     }
 
+#ifdef __ANDROID__
+    struct timeval tv;
+    if (gettimeofday(&tv, NULL) == 0) {
+        return (long long)tv.tv_sec * 1000LL + (long long)(tv.tv_usec / 1000LL);
+    }
+#else
     struct timespec ts;
     if (timespec_get(&ts, TIME_UTC) == TIME_UTC) {
         return (long long)ts.tv_sec * 1000LL + (long long)(ts.tv_nsec / 1000000LL);
     }
+#endif
     return (long long)time(NULL) * 1000LL;
 }
 

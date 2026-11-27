@@ -111,3 +111,22 @@ School administrators had no way to generate, preview, or print student identity
 2. In `src/ui/window.c`, explicitly enabled `gtk_window_set_resizable(window, TRUE)` and added `gtk_window_maximize(window)` to provide auto-adjusted full-screen workspace across any monitor resolution.
 3. In `src/ui/login.c`, set root container to `GTK_ALIGN_FILL` so the gradient fills the entire window, with the login card centered.
 4. In all UI views, updated `GtkScrolledWindow` policy from `GTK_POLICY_NEVER` to `GTK_POLICY_AUTOMATIC` on the horizontal axis. This allows smooth custom window resizing to any dimension while presenting smooth horizontal scrolling when needed.
+
+---
+
+## [ISSUE-010] Companion Android Application (.apk) & Serverless Multi-Device Sync (GitHub Issue #10)
+- **Status:** `RESOLVED`
+- **Module:** Android NDK Core, Jetpack Compose UI, WorkManager Sync, Offline PDF Printing
+- **Severity:** High (New Cross-Platform Companion App)
+- **GitHub Issue:** `#10`
+- **Files Created / Modified:**
+  - `include/dashboard.h`, `src/auth/auth.c`, `src/sync/sync_core.c` (Android NDK API compatibility & built-in PBKDF2-HMAC-SHA256 parity)
+  - `android/app/src/main/cpp/CMakeLists.txt`, `android/app/src/main/cpp/schoolcms_jni.c`
+  - `android/app/src/main/java/com/apcoaching/schoolcms/**` (NativeBridge, CpanelSyncClient, SyncManager, SyncWorker, PdfPrintHelper, 10 Jetpack Compose screens)
+  - `.github/workflows/release.yml`, `scripts/bump_version.py`
+
+### Resolution
+1. Ported the shared C11 persistence, PBKDF2 auth/RBAC, 10 operational modules, and Schema V3 delta sync engine into `libschoolcms_core.so` compiled across `arm64-v8a`, `armeabi-v7a`, and `x86_64` via Android NDK + CMake + SQLite `3.47.0`.
+2. Built responsive Material 3 Jetpack Compose UI mirroring Dashboard, Students (`ADM-YYYY-M0001`), Faculty (`TCH`/`STF`), Classes/Sections/Subjects, Bulk Attendance, Fee Collection & Vector Receipt Print/Share PDF (`PrintManager`), Exams/Marksheets PDF, Conflict-Checked Timetable, Analytics Reports PDF, and RBAC + Cloud Sync Settings.
+3. Integrated active in-app debounced push (`~900ms`) + 20s periodic pull and background Android `WorkManager` delta synchronization against `cpanel_backend/`.
+4. Configured release APK signing, GitHub Release workflow automation, and PR merge into `master`.

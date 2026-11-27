@@ -182,6 +182,15 @@ def get_version_files(app_name):
                 ),
             ],
         },
+        {
+            "path": "android/app/build.gradle",
+            "replacements": [
+                (
+                    r'versionName "\d+\.\d+\.\d+"',
+                    r'versionName "{new}"'
+                ),
+            ],
+        },
     ]
 
 
