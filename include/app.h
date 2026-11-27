@@ -12,7 +12,7 @@
 #include <gtk/gtk.h>
 
 #define APP_NAME "APCOACHING"
-#define APP_VERSION "1.2.0"
+#define APP_VERSION "2.0.0"
 
 /** Opaque application state. */
 typedef struct _SchoolApp SchoolApp;
