@@ -6,9 +6,11 @@
 
 #include "ui/settings_view.h"
 #include "ui/dialog.h"
+#include "database.h"
 #include "settings.h"
 #include "classes.h"
 #include "auth/auth.h"
+#include "sync/sync_engine.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,6 +30,7 @@ typedef enum {
     SETTINGS_TAB_PROFILE = 0,
     SETTINGS_TAB_SECURITY,
     SETTINGS_TAB_SMTP,
+    SETTINGS_TAB_SYNC,
     SETTINGS_TAB_USERS,
     SETTINGS_TAB_ROLES,
     SETTINGS_TAB_BACKUP,
@@ -64,6 +67,7 @@ typedef struct {
     GtkWidget *card_prof;
     GtkWidget *card_security;
     GtkWidget *card_smtp;
+    GtkWidget *card_sync;
     GtkWidget *card_users;
     GtkWidget *card_roles;
     GtkWidget *card_bk;
@@ -123,12 +127,26 @@ typedef struct {
     GtkWidget *btn_backup;
     GtkWidget *btn_rest;
 
+    /* Cloud Sync (cPanel) Controls */
+    GtkWidget *chk_sync_enabled;
+    GtkWidget *entry_sync_url;
+    GtkWidget *entry_sync_token;
+    GtkWidget *entry_sync_hmac;
+    GtkWidget *lbl_sync_live_status;
+    GtkWidget *lbl_sync_device_info;
+    GtkWidget *btn_save_sync;
+    GtkWidget *btn_test_sync;
+    GtkWidget *btn_sync_now;
+
     SchoolSettings current_settings;
 } SettingsWidgets;
+
+static SettingsWidgets *s_active_settings_sw = NULL;
 
 static void switch_settings_tab(SettingsWidgets *sw, SettingsTab tab);
 static void load_settings_into_form(SettingsWidgets *sw);
 static void load_smtp_into_form(SettingsWidgets *sw);
+static void load_sync_into_form(SettingsWidgets *sw);
 static void refresh_users_list(SettingsWidgets *sw);
 static void refresh_role_permissions(SettingsWidgets *sw);
 static void refresh_audit_logs(SettingsWidgets *sw);
@@ -366,6 +384,219 @@ static void on_test_smtp_clicked(GtkButton *btn, gpointer user_data)
     }
     gtk_widget_set_visible(sw->status_banner, TRUE);
     refresh_audit_logs(sw);
+}
+
+/* ── Cloud Sync (cPanel) Handlers & Live Indicator ────────────────── */
+
+static void update_sync_status_labels(SettingsWidgets *sw, const SyncEngineStatus *st)
+{
+    if (!sw || s_active_settings_sw != sw || !st) return;
+
+    char dev_line[256];
+    snprintf(dev_line, sizeof(dev_line),
+             "Device ID: %s   |   Prefix: %s   |   Server Seq: #%lld   |   Pending Outbox: %d",
+             st->device_id[0] ? st->device_id : "DEV-...",
+             st->device_prefix[0] ? st->device_prefix : "D",
+             st->last_server_seq,
+             st->pending_outbox);
+    if (sw->lbl_sync_device_info) {
+        gtk_label_set_text(GTK_LABEL(sw->lbl_sync_device_info), dev_line);
+    }
+
+    if (sw->lbl_sync_live_status) {
+        const char *dot = "● ";
+        char text_buf[320];
+        snprintf(text_buf, sizeof(text_buf), "%s%s", dot, st->message[0] ? st->message : "Ready");
+        gtk_label_set_text(GTK_LABEL(sw->lbl_sync_live_status), text_buf);
+
+        gtk_widget_remove_css_class(sw->lbl_sync_live_status, "card-kpi-green");
+        gtk_widget_remove_css_class(sw->lbl_sync_live_status, "card-kpi-red");
+        gtk_widget_remove_css_class(sw->lbl_sync_live_status, "dim-label");
+
+        if (st->code == SYNC_STATUS_OK) {
+            gtk_widget_add_css_class(sw->lbl_sync_live_status, "card-kpi-green");
+        } else if (st->code == SYNC_STATUS_AUTH_ERROR || st->code == SYNC_STATUS_ERROR ||
+                   st->code == SYNC_STATUS_OFFLINE) {
+            gtk_widget_add_css_class(sw->lbl_sync_live_status, "card-kpi-red");
+        } else {
+            gtk_widget_add_css_class(sw->lbl_sync_live_status, "dim-label");
+        }
+    }
+}
+
+static void on_sync_live_status_changed(const SyncEngineStatus *st, gpointer user_data)
+{
+    SettingsWidgets *sw = (SettingsWidgets *)user_data;
+    if (sw && s_active_settings_sw == sw) {
+        update_sync_status_labels(sw, st);
+    }
+}
+
+static void load_sync_into_form(SettingsWidgets *sw)
+{
+    char url[256] = {0}, token[256] = {0}, hmac[256] = {0};
+    bool enabled = false;
+    sync_engine_get_config(url, sizeof(url), token, sizeof(token), hmac, sizeof(hmac), &enabled);
+
+    gtk_check_button_set_active(GTK_CHECK_BUTTON(sw->chk_sync_enabled), enabled);
+    gtk_editable_set_text(GTK_EDITABLE(sw->entry_sync_url), url);
+    gtk_editable_set_text(GTK_EDITABLE(sw->entry_sync_token), token);
+    gtk_editable_set_text(GTK_EDITABLE(sw->entry_sync_hmac), hmac);
+
+    SyncEngineStatus st;
+    sync_engine_get_status(&st);
+    update_sync_status_labels(sw, &st);
+}
+
+static void on_save_sync_clicked(GtkButton *btn, gpointer user_data)
+{
+    (void)btn;
+    SettingsWidgets *sw = (SettingsWidgets *)user_data;
+    if (!auth_current_user_can_access("SETTINGS", true)) {
+        gtk_label_set_text(GTK_LABEL(sw->status_banner), "Read-only access: SETTINGS edit permission required.");
+        gtk_widget_set_visible(sw->status_banner, TRUE);
+        return;
+    }
+
+    const char *url   = gtk_editable_get_text(GTK_EDITABLE(sw->entry_sync_url));
+    const char *token = gtk_editable_get_text(GTK_EDITABLE(sw->entry_sync_token));
+    const char *hmac  = gtk_editable_get_text(GTK_EDITABLE(sw->entry_sync_hmac));
+    gboolean enabled  = gtk_check_button_get_active(GTK_CHECK_BUTTON(sw->chk_sync_enabled));
+
+    if (enabled && ((!url || !url[0]) || (!token || !token[0]))) {
+        gtk_label_set_text(GTK_LABEL(sw->status_banner),
+                           "Enter both cPanel Sync API URL and Device Token before enabling auto-sync.");
+        gtk_widget_remove_css_class(sw->status_banner, "card-kpi-green");
+        gtk_widget_add_css_class(sw->status_banner, "card-kpi-red");
+        gtk_widget_set_visible(sw->status_banner, TRUE);
+        return;
+    }
+
+    bool ok = sync_engine_save_config(url, token, hmac, enabled != FALSE);
+    if (ok) {
+        gtk_label_set_text(GTK_LABEL(sw->status_banner),
+                           enabled ? "Cloud Sync enabled and saved. Background engine active."
+                                   : "Cloud Sync configuration saved (disabled).");
+        gtk_widget_remove_css_class(sw->status_banner, "card-kpi-red");
+        gtk_widget_add_css_class(sw->status_banner, "card-kpi-green");
+        const UserSession *sess = auth_get_session();
+        db_log_activity(sess ? sess->user_id : 1, "UPDATE_SYNC_CONFIG", "SETTINGS", url ? url : "");
+        refresh_audit_logs(sw);
+        load_sync_into_form(sw);
+    } else {
+        gtk_label_set_text(GTK_LABEL(sw->status_banner), "Failed saving Cloud Sync configuration.");
+        gtk_widget_remove_css_class(sw->status_banner, "card-kpi-green");
+        gtk_widget_add_css_class(sw->status_banner, "card-kpi-red");
+    }
+    gtk_widget_set_visible(sw->status_banner, TRUE);
+}
+
+typedef struct {
+    SettingsWidgets *sw;
+    char url[256];
+    char token[256];
+    char hmac[256];
+    bool is_sync_now;
+    bool success;
+    char result_msg[256];
+} SyncAsyncJob;
+
+static gboolean on_sync_async_complete(gpointer data)
+{
+    SyncAsyncJob *job = (SyncAsyncJob *)data;
+    SettingsWidgets *sw = job->sw;
+
+    if (s_active_settings_sw == sw && sw != NULL) {
+        if (sw->btn_test_sync) gtk_widget_set_sensitive(sw->btn_test_sync, TRUE);
+        if (sw->btn_sync_now)  gtk_widget_set_sensitive(sw->btn_sync_now, TRUE);
+
+        gtk_label_set_text(GTK_LABEL(sw->status_banner), job->result_msg);
+        gtk_widget_remove_css_class(sw->status_banner, job->success ? "card-kpi-red" : "card-kpi-green");
+        gtk_widget_add_css_class(sw->status_banner, job->success ? "card-kpi-green" : "card-kpi-red");
+        gtk_widget_set_visible(sw->status_banner, TRUE);
+
+        SyncEngineStatus st;
+        sync_engine_get_status(&st);
+        update_sync_status_labels(sw, &st);
+    }
+    g_free(job);
+    return G_SOURCE_REMOVE;
+}
+
+static gpointer sync_async_worker_fn(gpointer data)
+{
+    SyncAsyncJob *job = (SyncAsyncJob *)data;
+    if (job->is_sync_now) {
+        job->success = sync_engine_sync_once_blocking(job->result_msg, sizeof(job->result_msg));
+    } else {
+        job->success = sync_engine_test_connection(job->url, job->token, job->hmac,
+                                                   job->result_msg, sizeof(job->result_msg));
+    }
+    g_idle_add(on_sync_async_complete, job);
+    return NULL;
+}
+
+static void on_test_sync_clicked(GtkButton *btn, gpointer user_data)
+{
+    (void)btn;
+    SettingsWidgets *sw = (SettingsWidgets *)user_data;
+
+    SyncAsyncJob *job = g_new0(SyncAsyncJob, 1);
+    job->sw = sw;
+    job->is_sync_now = false;
+    const char *u = gtk_editable_get_text(GTK_EDITABLE(sw->entry_sync_url));
+    const char *t = gtk_editable_get_text(GTK_EDITABLE(sw->entry_sync_token));
+    const char *h = gtk_editable_get_text(GTK_EDITABLE(sw->entry_sync_hmac));
+    snprintf(job->url, sizeof(job->url), "%s", u ? u : "");
+    snprintf(job->token, sizeof(job->token), "%s", t ? t : "");
+    snprintf(job->hmac, sizeof(job->hmac), "%s", h ? h : "");
+
+    if (sw->btn_test_sync) gtk_widget_set_sensitive(sw->btn_test_sync, FALSE);
+    gtk_label_set_text(GTK_LABEL(sw->status_banner), "Testing connection to cPanel Sync API...");
+    gtk_widget_remove_css_class(sw->status_banner, "card-kpi-red");
+    gtk_widget_remove_css_class(sw->status_banner, "card-kpi-green");
+    gtk_widget_set_visible(sw->status_banner, TRUE);
+
+    GThread *th = g_thread_new("sync-test", sync_async_worker_fn, job);
+    g_thread_unref(th);
+}
+
+static void on_sync_now_clicked(GtkButton *btn, gpointer user_data)
+{
+    (void)btn;
+    SettingsWidgets *sw = (SettingsWidgets *)user_data;
+
+    const char *url   = gtk_editable_get_text(GTK_EDITABLE(sw->entry_sync_url));
+    const char *token = gtk_editable_get_text(GTK_EDITABLE(sw->entry_sync_token));
+    const char *hmac  = gtk_editable_get_text(GTK_EDITABLE(sw->entry_sync_hmac));
+    gboolean enabled  = gtk_check_button_get_active(GTK_CHECK_BUTTON(sw->chk_sync_enabled));
+
+    if (url && url[0] && token && token[0]) {
+        sync_engine_save_config(url, token, hmac, enabled != FALSE);
+    }
+
+    SyncAsyncJob *job = g_new0(SyncAsyncJob, 1);
+    job->sw = sw;
+    job->is_sync_now = true;
+
+    if (sw->btn_sync_now) gtk_widget_set_sensitive(sw->btn_sync_now, FALSE);
+    gtk_label_set_text(GTK_LABEL(sw->status_banner), "Running immediate push & pull delta sync...");
+    gtk_widget_remove_css_class(sw->status_banner, "card-kpi-red");
+    gtk_widget_remove_css_class(sw->status_banner, "card-kpi-green");
+    gtk_widget_set_visible(sw->status_banner, TRUE);
+
+    GThread *th = g_thread_new("sync-now", sync_async_worker_fn, job);
+    g_thread_unref(th);
+}
+
+static void on_settings_view_destroy(GtkWidget *widget, gpointer user_data)
+{
+    (void)widget;
+    SettingsWidgets *sw = (SettingsWidgets *)user_data;
+    if (s_active_settings_sw == sw) {
+        s_active_settings_sw = NULL;
+    }
+    sync_engine_set_status_callback(NULL, NULL);
 }
 
 /* ── User Management Handlers & Dialogs ───────────────────────────── */
@@ -1354,6 +1585,7 @@ static void switch_settings_tab(SettingsWidgets *sw, SettingsTab tab)
     gtk_widget_set_visible(sw->card_prof, tab == SETTINGS_TAB_PROFILE);
     gtk_widget_set_visible(sw->card_security, tab == SETTINGS_TAB_SECURITY);
     gtk_widget_set_visible(sw->card_smtp, tab == SETTINGS_TAB_SMTP);
+    gtk_widget_set_visible(sw->card_sync, tab == SETTINGS_TAB_SYNC);
     gtk_widget_set_visible(sw->card_users, tab == SETTINGS_TAB_USERS);
     gtk_widget_set_visible(sw->card_roles, tab == SETTINGS_TAB_ROLES);
     gtk_widget_set_visible(sw->card_bk, tab == SETTINGS_TAB_BACKUP);
@@ -1362,6 +1594,7 @@ static void switch_settings_tab(SettingsWidgets *sw, SettingsTab tab)
     /* Contextual refresh */
     if (tab == SETTINGS_TAB_PROFILE) load_settings_into_form(sw);
     else if (tab == SETTINGS_TAB_SMTP) load_smtp_into_form(sw);
+    else if (tab == SETTINGS_TAB_SYNC) load_sync_into_form(sw);
     else if (tab == SETTINGS_TAB_USERS) refresh_users_list(sw);
     else if (tab == SETTINGS_TAB_ROLES) refresh_role_permissions(sw);
     else if (tab == SETTINGS_TAB_BACKUP) refresh_backup_list(sw);
@@ -1389,7 +1622,10 @@ GtkWidget *school_settings_view_new(void)
     gtk_widget_set_margin_top(sw->root_box, 20);
     gtk_widget_set_margin_bottom(sw->root_box, 24);
 
+    s_active_settings_sw = sw;
     g_object_set_data_full(G_OBJECT(sw->root_box), "settings_state", sw, g_free);
+    g_signal_connect(sw->root_box, "destroy", G_CALLBACK(on_settings_view_destroy), sw);
+    sync_engine_set_status_callback(on_sync_live_status_changed, sw);
 
     /* ── Header Bar ─────────────────────────────────────────────── */
     GtkWidget *hdr = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
@@ -1422,6 +1658,7 @@ GtkWidget *school_settings_view_new(void)
         "Profile",
         "Account Security",
         "Email SMTP",
+        "Cloud Sync",
         "Users & Roles",
         "Role Permissions",
         "Disaster Recovery",
@@ -1749,6 +1986,96 @@ GtkWidget *school_settings_view_new(void)
     gtk_box_append(GTK_BOX(content_box), sw->card_smtp);
 
     /* ═══════════════════════════════════════════════════════════════
+       CARD 3B: CLOUD SYNC (cPanel MULTI-DEVICE SERVERLESS SYNC)
+       ═══════════════════════════════════════════════════════════════ */
+    sw->card_sync = gtk_box_new(GTK_ORIENTATION_VERTICAL, 14);
+    gtk_widget_add_css_class(sw->card_sync, "card");
+
+    GtkWidget *hdr_sync = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+    GtkWidget *lbl_sync_title = gtk_label_new("Cloud Sync (cPanel Serverless Multi-Device Sync)");
+    gtk_widget_add_css_class(lbl_sync_title, "card-title");
+    gtk_label_set_xalign(GTK_LABEL(lbl_sync_title), 0.0f);
+    gtk_widget_set_hexpand(lbl_sync_title, TRUE);
+    gtk_box_append(GTK_BOX(hdr_sync), lbl_sync_title);
+
+    sw->chk_sync_enabled = gtk_check_button_new_with_label("Enable Auto-Sync");
+    gtk_box_append(GTK_BOX(hdr_sync), sw->chk_sync_enabled);
+    gtk_box_append(GTK_BOX(sw->card_sync), hdr_sync);
+
+    GtkWidget *lbl_sync_desc = gtk_label_new(
+        "Automatically pushes local changes (~1s debounce) and pulls Android mobile updates every 20s "
+        "in-process via HTTPS to your cPanel PHP + MySQL sync backend.");
+    gtk_widget_add_css_class(lbl_sync_desc, "dim-label");
+    gtk_label_set_wrap(GTK_LABEL(lbl_sync_desc), TRUE);
+    gtk_label_set_xalign(GTK_LABEL(lbl_sync_desc), 0.0f);
+    gtk_box_append(GTK_BOX(sw->card_sync), lbl_sync_desc);
+
+    sw->lbl_sync_live_status = gtk_label_new("● Ready");
+    gtk_widget_add_css_class(sw->lbl_sync_live_status, "card");
+    gtk_label_set_xalign(GTK_LABEL(sw->lbl_sync_live_status), 0.0f);
+    gtk_label_set_wrap(GTK_LABEL(sw->lbl_sync_live_status), TRUE);
+    gtk_box_append(GTK_BOX(sw->card_sync), sw->lbl_sync_live_status);
+
+    sw->lbl_sync_device_info = gtk_label_new("Device ID: ...");
+    gtk_widget_add_css_class(sw->lbl_sync_device_info, "dim-label");
+    gtk_label_set_xalign(GTK_LABEL(sw->lbl_sync_device_info), 0.0f);
+    gtk_box_append(GTK_BOX(sw->card_sync), sw->lbl_sync_device_info);
+
+    GtkWidget *b_surl = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+    GtkWidget *l_surl = gtk_label_new("cPanel Sync API URL:");
+    gtk_label_set_xalign(GTK_LABEL(l_surl), 0.0f);
+    gtk_box_append(GTK_BOX(b_surl), l_surl);
+    sw->entry_sync_url = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(sw->entry_sync_url), "https://sync.yourschool.com");
+    gtk_box_append(GTK_BOX(b_surl), sw->entry_sync_url);
+    gtk_box_append(GTK_BOX(sw->card_sync), b_surl);
+
+    GtkWidget *sync_r2 = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+    GtkWidget *b_stok = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+    gtk_widget_set_hexpand(b_stok, TRUE);
+    GtkWidget *l_stok = gtk_label_new("Device Bearer Token:");
+    gtk_label_set_xalign(GTK_LABEL(l_stok), 0.0f);
+    gtk_box_append(GTK_BOX(b_stok), l_stok);
+    sw->entry_sync_token = gtk_entry_new();
+    gtk_entry_set_visibility(GTK_ENTRY(sw->entry_sync_token), FALSE);
+    gtk_entry_set_placeholder_text(GTK_ENTRY(sw->entry_sync_token), "64-char hex token from cPanel config.local.php");
+    gtk_box_append(GTK_BOX(b_stok), sw->entry_sync_token);
+    gtk_box_append(GTK_BOX(sync_r2), b_stok);
+
+    GtkWidget *b_shmac = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+    gtk_widget_set_hexpand(b_shmac, TRUE);
+    GtkWidget *l_shmac = gtk_label_new("HMAC Secret (Optional):");
+    gtk_label_set_xalign(GTK_LABEL(l_shmac), 0.0f);
+    gtk_box_append(GTK_BOX(b_shmac), l_shmac);
+    sw->entry_sync_hmac = gtk_entry_new();
+    gtk_entry_set_visibility(GTK_ENTRY(sw->entry_sync_hmac), FALSE);
+    gtk_entry_set_placeholder_text(GTK_ENTRY(sw->entry_sync_hmac), "Leave empty unless enabled in config.local.php");
+    gtk_box_append(GTK_BOX(b_shmac), sw->entry_sync_hmac);
+    gtk_box_append(GTK_BOX(sync_r2), b_shmac);
+    gtk_box_append(GTK_BOX(sw->card_sync), sync_r2);
+
+    GtkWidget *sync_btns = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+    gtk_widget_set_margin_top(sync_btns, 8);
+
+    sw->btn_save_sync = gtk_button_new_with_label("Save Sync Settings");
+    gtk_widget_add_css_class(sw->btn_save_sync, "btn-primary");
+    g_signal_connect(sw->btn_save_sync, "clicked", G_CALLBACK(on_save_sync_clicked), sw);
+    gtk_box_append(GTK_BOX(sync_btns), sw->btn_save_sync);
+
+    sw->btn_test_sync = gtk_button_new_with_label("Test Sync Connection");
+    gtk_widget_add_css_class(sw->btn_test_sync, "btn-secondary");
+    g_signal_connect(sw->btn_test_sync, "clicked", G_CALLBACK(on_test_sync_clicked), sw);
+    gtk_box_append(GTK_BOX(sync_btns), sw->btn_test_sync);
+
+    sw->btn_sync_now = gtk_button_new_with_label("Sync Now");
+    gtk_widget_add_css_class(sw->btn_sync_now, "btn-secondary");
+    g_signal_connect(sw->btn_sync_now, "clicked", G_CALLBACK(on_sync_now_clicked), sw);
+    gtk_box_append(GTK_BOX(sync_btns), sw->btn_sync_now);
+
+    gtk_box_append(GTK_BOX(sw->card_sync), sync_btns);
+    gtk_box_append(GTK_BOX(content_box), sw->card_sync);
+
+    /* ═══════════════════════════════════════════════════════════════
        CARD 4: USER DIRECTORY & ROLE-BASED LOGIN (RBAC)
        ═══════════════════════════════════════════════════════════════ */
     sw->card_users = gtk_box_new(GTK_ORIENTATION_VERTICAL, 14);
@@ -1957,16 +2284,21 @@ void school_settings_view_reload(GtkWidget *view)
     SettingsWidgets *sw = (SettingsWidgets *)g_object_get_data(G_OBJECT(view), "settings_state");
     if (sw) {
         gboolean can_edit = auth_current_user_can_access("SETTINGS", true);
-        if (sw->save_prof_btn)  gtk_widget_set_visible(sw->save_prof_btn, can_edit);
-        if (sw->btn_save_smtp)  gtk_widget_set_visible(sw->btn_save_smtp, can_edit);
-        if (sw->btn_test_smtp)  gtk_widget_set_visible(sw->btn_test_smtp, can_edit);
-        if (sw->btn_add_user)   gtk_widget_set_visible(sw->btn_add_user, can_edit);
-        if (sw->btn_save_perms) gtk_widget_set_visible(sw->btn_save_perms, can_edit);
-        if (sw->btn_backup)     gtk_widget_set_visible(sw->btn_backup, can_edit);
-        if (sw->btn_rest)       gtk_widget_set_visible(sw->btn_rest, can_edit);
+        if (sw->save_prof_btn)    gtk_widget_set_visible(sw->save_prof_btn, can_edit);
+        if (sw->btn_save_smtp)    gtk_widget_set_visible(sw->btn_save_smtp, can_edit);
+        if (sw->btn_test_smtp)    gtk_widget_set_visible(sw->btn_test_smtp, can_edit);
+        if (sw->btn_save_sync)    gtk_widget_set_visible(sw->btn_save_sync, can_edit);
+        if (sw->btn_test_sync)    gtk_widget_set_visible(sw->btn_test_sync, can_edit);
+        if (sw->btn_sync_now)     gtk_widget_set_visible(sw->btn_sync_now, can_edit);
+        if (sw->chk_sync_enabled) gtk_widget_set_sensitive(sw->chk_sync_enabled, can_edit);
+        if (sw->btn_add_user)     gtk_widget_set_visible(sw->btn_add_user, can_edit);
+        if (sw->btn_save_perms)   gtk_widget_set_visible(sw->btn_save_perms, can_edit);
+        if (sw->btn_backup)       gtk_widget_set_visible(sw->btn_backup, can_edit);
+        if (sw->btn_rest)         gtk_widget_set_visible(sw->btn_rest, can_edit);
 
         load_settings_into_form(sw);
         load_smtp_into_form(sw);
+        load_sync_into_form(sw);
         refresh_audit_logs(sw);
         refresh_backup_list(sw);
         refresh_users_list(sw);
