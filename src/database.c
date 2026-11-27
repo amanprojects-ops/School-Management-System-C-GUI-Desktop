@@ -4,6 +4,14 @@
  */
 
 #include "database.h"
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#else
+#include <pthread.h>
+#endif
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -593,9 +601,10 @@ DbResult db_init(const char *db_path)
         return DB_ERROR_OPEN;
     }
 
-    /* Configure WAL mode and foreign keys */
+    /* Configure WAL mode, lock busy timeout, and foreign keys */
     char *errmsg = NULL;
-    rc = sqlite3_exec(s_db, "PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA synchronous = NORMAL;",
+    rc = sqlite3_exec(s_db,
+                      "PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000; PRAGMA foreign_keys = ON; PRAGMA synchronous = NORMAL;",
                       NULL, NULL, &errmsg);
     if (rc != SQLITE_OK) {
         fprintf(stderr, "[DB WARNING] Could not set WAL or foreign_keys: %s\n", errmsg ? errmsg : "unknown");
@@ -774,14 +783,72 @@ DbResult db_run_migrations(void)
     return DB_SUCCESS;
 }
 
+/* ── Process-Wide Recursive DB Lock (Multi-Thread WAL Safety) ─────── */
+
+#ifdef _WIN32
+static CRITICAL_SECTION s_db_cs;
+static volatile LONG s_db_cs_init = 0;
+
+static void ensure_db_lock_init(void)
+{
+    if (InterlockedCompareExchange(&s_db_cs_init, 1, 0) == 0) {
+        InitializeCriticalSection(&s_db_cs);
+        InterlockedExchange(&s_db_cs_init, 2);
+    } else {
+        while (s_db_cs_init != 2) {
+            Sleep(0);
+        }
+    }
+}
+
+void db_lock(void)
+{
+    ensure_db_lock_init();
+    EnterCriticalSection(&s_db_cs);
+}
+
+void db_unlock(void)
+{
+    if (s_db_cs_init == 2) {
+        LeaveCriticalSection(&s_db_cs);
+    }
+}
+#else
+static pthread_mutex_t s_db_mutex;
+static pthread_once_t s_db_once = PTHREAD_ONCE_INIT;
+
+static void init_posix_db_mutex(void)
+{
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&s_db_mutex, &attr);
+    pthread_mutexattr_destroy(&attr);
+}
+
+void db_lock(void)
+{
+    pthread_once(&s_db_once, init_posix_db_mutex);
+    pthread_mutex_lock(&s_db_mutex);
+}
+
+void db_unlock(void)
+{
+    pthread_once(&s_db_once, init_posix_db_mutex);
+    pthread_mutex_unlock(&s_db_mutex);
+}
+#endif
+
 DbResult db_begin_transaction(void)
 {
     if (s_db == NULL) return DB_ERROR_OPEN;
+    db_lock();
     char *errmsg = NULL;
     int rc = sqlite3_exec(s_db, "BEGIN IMMEDIATE TRANSACTION;", NULL, NULL, &errmsg);
     if (rc != SQLITE_OK) {
         fprintf(stderr, "[DB ERROR] BEGIN TRANSACTION failed: %s\n", errmsg ? errmsg : "unknown");
         sqlite3_free(errmsg);
+        db_unlock();
         return DB_ERROR_EXEC;
     }
     return DB_SUCCESS;
@@ -792,6 +859,7 @@ DbResult db_commit(void)
     if (s_db == NULL) return DB_ERROR_OPEN;
     char *errmsg = NULL;
     int rc = sqlite3_exec(s_db, "COMMIT;", NULL, NULL, &errmsg);
+    db_unlock();
     if (rc != SQLITE_OK) {
         fprintf(stderr, "[DB ERROR] COMMIT failed: %s\n", errmsg ? errmsg : "unknown");
         sqlite3_free(errmsg);
@@ -805,6 +873,7 @@ DbResult db_rollback(void)
     if (s_db == NULL) return DB_ERROR_OPEN;
     char *errmsg = NULL;
     int rc = sqlite3_exec(s_db, "ROLLBACK;", NULL, NULL, &errmsg);
+    db_unlock();
     if (rc != SQLITE_OK) {
         fprintf(stderr, "[DB ERROR] ROLLBACK failed: %s\n", errmsg ? errmsg : "unknown");
         sqlite3_free(errmsg);
