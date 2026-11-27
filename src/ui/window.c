@@ -19,7 +19,9 @@
 #include "ui/settings_view.h"
 #include "ui/login.h"
 #include "auth/auth.h"
+#include "sync/sync_engine.h"
 #include <stdio.h>
+#include <string.h>
 
 /* ── Module state ─────────────────────────────────────────────────── */
 
@@ -93,6 +95,24 @@ static void update_status_bar_session(void)
     }
 }
 
+static void on_remote_sync_applied(int applied_count, gpointer user_data)
+{
+    (void)user_data;
+    if (applied_count > 0 && auth_is_logged_in()) {
+        school_sidebar_apply_permissions();
+        school_window_refresh_active_page();
+    }
+}
+
+static void on_main_window_destroy(GtkWidget *widget, gpointer user_data)
+{
+    (void)widget;
+    (void)user_data;
+    sync_engine_set_remote_callback(NULL, NULL);
+    sync_engine_set_status_callback(NULL, NULL);
+    sync_engine_stop();
+}
+
 static void on_login_success(gpointer user_data)
 {
     (void)user_data;
@@ -104,6 +124,9 @@ static void on_login_success(gpointer user_data)
     update_status_bar_session();
     school_window_show_app();
     school_window_navigate(NAV_DASHBOARD);
+
+    sync_engine_set_remote_callback(on_remote_sync_applied, NULL);
+    sync_engine_start();
 }
 
 /* ── Public API ───────────────────────────────────────────────────── */
@@ -265,10 +288,14 @@ void school_window_new(GtkApplication *app)
         }
         update_status_bar_session();
         school_window_show_app();
+        sync_engine_set_remote_callback(on_remote_sync_applied, NULL);
+        sync_engine_start();
     } else {
         update_status_bar_session();
         school_window_show_login();
     }
+
+    g_signal_connect(window, "destroy", G_CALLBACK(on_main_window_destroy), NULL);
 
     /* Show */
     gtk_window_present(GTK_WINDOW(window));
@@ -382,6 +409,35 @@ void school_window_navigate(NavPage page)
                 break;
             default:
                 break;
+        }
+    }
+}
+
+void school_window_refresh_active_page(void)
+{
+    if (!content_stack) return;
+    const char *vis_name = gtk_stack_get_visible_child_name(content_stack);
+    if (!vis_name) return;
+
+    GtkWidget *target = gtk_stack_get_child_by_name(content_stack, vis_name);
+    if (!target) return;
+
+    for (int i = 0; i < NAV_PAGE_COUNT; i++) {
+        if (strcmp(vis_name, page_names[i]) == 0) {
+            switch ((NavPage)i) {
+                case NAV_DASHBOARD:  school_dashboard_refresh(target); break;
+                case NAV_STUDENTS:   school_student_view_reload(target); break;
+                case NAV_TEACHERS:   school_teacher_view_reload(target); break;
+                case NAV_CLASSES:    school_classes_view_reload(target); break;
+                case NAV_ATTENDANCE: school_attendance_view_reload(target); break;
+                case NAV_FEES:       school_fees_view_reload(target); break;
+                case NAV_EXAMS:      school_exams_view_reload(target); break;
+                case NAV_TIMETABLE:  school_timetable_view_reload(target); break;
+                case NAV_REPORTS:    school_reports_view_reload(target); break;
+                case NAV_SETTINGS:   school_settings_view_reload(target); break;
+                default: break;
+            }
+            break;
         }
     }
 }
