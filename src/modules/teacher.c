@@ -15,49 +15,13 @@
 bool teacher_service_generate_code(char *out_code, size_t size)
 {
     if (!out_code || size < 20) return false;
-
-    sqlite3 *db = db_get_handle();
-    if (!db) return false;
-
-    int max_id = 0;
-    sqlite3_stmt *stmt = NULL;
-    if (sqlite3_prepare_v2(db, "SELECT COALESCE(MAX(id), 0) FROM teachers;", -1, &stmt, NULL) == SQLITE_OK) {
-        if (sqlite3_step(stmt) == SQLITE_ROW) {
-            max_id = sqlite3_column_int(stmt, 0);
-        }
-        sqlite3_finalize(stmt);
-    }
-
-    time_t now = time(NULL);
-    struct tm *tm_info = localtime(&now);
-    int year = (tm_info) ? (tm_info->tm_year + 1900) : 2026;
-
-    snprintf(out_code, size, "TCH-%d-%04d", year, max_id + 1);
-    return true;
+    return db_sync_generate_prefixed_code("teachers", "teacher_code", "TCH", out_code, size);
 }
 
 bool staff_service_generate_code(char *out_code, size_t size)
 {
     if (!out_code || size < 20) return false;
-
-    sqlite3 *db = db_get_handle();
-    if (!db) return false;
-
-    int max_id = 0;
-    sqlite3_stmt *stmt = NULL;
-    if (sqlite3_prepare_v2(db, "SELECT COALESCE(MAX(id), 0) FROM staff;", -1, &stmt, NULL) == SQLITE_OK) {
-        if (sqlite3_step(stmt) == SQLITE_ROW) {
-            max_id = sqlite3_column_int(stmt, 0);
-        }
-        sqlite3_finalize(stmt);
-    }
-
-    time_t now = time(NULL);
-    struct tm *tm_info = localtime(&now);
-    int year = (tm_info) ? (tm_info->tm_year + 1900) : 2026;
-
-    snprintf(out_code, size, "STF-%d-%04d", year, max_id + 1);
-    return true;
+    return db_sync_generate_prefixed_code("staff", "staff_code", "STF", out_code, size);
 }
 
 /* ── Teacher Implementation ───────────────────────────────────────── */
