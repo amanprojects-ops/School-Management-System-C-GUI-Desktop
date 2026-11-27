@@ -14,43 +14,8 @@
 
 bool fee_service_generate_receipt_no(char *out_buf, size_t max_len)
 {
-    if (!out_buf || max_len < 16) return false;
-
-    time_t t = time(NULL);
-    struct tm tm = *localtime(&t);
-    int current_year = tm.tm_year + 1900;
-
-    sqlite3 *db = db_get_handle();
-    if (!db) {
-        snprintf(out_buf, max_len, "RCP-%04d-0001", current_year);
-        return true;
-    }
-
-    char prefix[32];
-    snprintf(prefix, sizeof(prefix), "RCP-%04d-%%", current_year);
-
-    const char *sql = "SELECT receipt_no FROM fee_payments WHERE receipt_no LIKE ? ORDER BY id DESC LIMIT 1;";
-    sqlite3_stmt *stmt = NULL;
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-        snprintf(out_buf, max_len, "RCP-%04d-0001", current_year);
-        return true;
-    }
-
-    sqlite3_bind_text(stmt, 1, prefix, -1, SQLITE_STATIC);
-
-    int next_seq = 1;
-    if (sqlite3_step(stmt) == SQLITE_ROW) {
-        const char *last_rcp = (const char *)sqlite3_column_text(stmt, 0);
-        if (last_rcp && strlen(last_rcp) >= 13) {
-            const char *seq_str = last_rcp + 9; /* after "RCP-YYYY-" */
-            int last_val = atoi(seq_str);
-            if (last_val > 0) next_seq = last_val + 1;
-        }
-    }
-    sqlite3_finalize(stmt);
-
-    snprintf(out_buf, max_len, "RCP-%04d-%04d", current_year, next_seq);
-    return true;
+    if (!out_buf || max_len < 20) return false;
+    return db_sync_generate_prefixed_code("fee_payments", "receipt_no", "RCP", out_buf, max_len);
 }
 
 /* ── Fee Structure Services ───────────────────────────────────────── */
