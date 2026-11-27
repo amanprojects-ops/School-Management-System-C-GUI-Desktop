@@ -14,6 +14,7 @@ endif()
 # Find GTK4, SQLite3, and OpenSSL Crypto via pkg-config
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GTK4 REQUIRED IMPORTED_TARGET gtk4)
+pkg_check_modules(GLIB REQUIRED IMPORTED_TARGET glib-2.0)
 pkg_check_modules(SQLITE3 REQUIRED IMPORTED_TARGET sqlite3)
 pkg_check_modules(CRYPTO REQUIRED IMPORTED_TARGET libcrypto)
 
@@ -34,6 +35,7 @@ set(SOURCES
     src/modules/reports.c
     src/modules/settings.c
     src/sync/sync_core.c
+    src/sync/sync_engine.c
     src/utils/print_pdf.c
     src/ui/login.c
     src/ui/dialog.c
@@ -73,7 +75,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     PkgConfig::CRYPTO
 )
 if(WIN32)
-    target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32 winhttp)
 endif()
 
 # Copy assets to build directory
@@ -284,6 +286,27 @@ target_link_libraries(test_sync PRIVATE
 )
 if(WIN32)
     target_link_libraries(test_sync PRIVATE ws2_32)
+endif()
+
+# In-process WinHTTP background sync engine unit + live integration test executable
+add_executable(test_sync_engine
+    tests/test_sync_engine.c
+    src/sync/sync_engine.c
+    src/sync/sync_core.c
+    src/database.c
+    src/modules/student.c
+    src/modules/classes.c
+)
+target_include_directories(test_sync_engine PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+target_link_libraries(test_sync_engine PRIVATE
+    PkgConfig::GLIB
+    PkgConfig::SQLITE3
+    PkgConfig::CRYPTO
+)
+if(WIN32)
+    target_link_libraries(test_sync_engine PRIVATE ws2_32 winhttp)
 endif()
 
 # End-to-End System Integration test executable
