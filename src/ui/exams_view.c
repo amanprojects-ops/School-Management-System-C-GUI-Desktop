@@ -5,6 +5,8 @@
 
 #include "ui/exams_view.h"
 #include "ui/dialog.h"
+#include "utils/print_pdf.h"
+#include "settings.h"
 #include "exams.h"
 #include "classes.h"
 #include "student.h"
@@ -1230,11 +1232,70 @@ static void show_schedule_subject_dialog(ExamsViewWidgets *evw, int exam_id)
 }
 
 /* 3. Printable Marksheet Dialog */
+static void on_marksheet_pdf_done(PrintPdfStatus status, const char *path_or_err, gpointer user_data)
+{
+    GtkWidget *lbl = GTK_WIDGET(user_data);
+    if (!lbl || status == PRINT_PDF_CANCELLED) return;
+
+    if (status == PRINT_PDF_OK) {
+        char msg[512];
+        snprintf(msg, sizeof(msg), "Report Card PDF saved: %s",
+                 path_or_err ? path_or_err : "exports/*.pdf");
+        gtk_label_set_text(GTK_LABEL(lbl), msg);
+        gtk_widget_remove_css_class(lbl, "card-kpi-red");
+        gtk_widget_add_css_class(lbl, "card-kpi-green");
+        gtk_widget_set_visible(lbl, TRUE);
+    } else {
+        gtk_label_set_text(GTK_LABEL(lbl), path_or_err ? path_or_err : "Failed to save marksheet PDF.");
+        gtk_widget_remove_css_class(lbl, "card-kpi-green");
+        gtk_widget_add_css_class(lbl, "card-kpi-red");
+        gtk_widget_set_visible(lbl, TRUE);
+    }
+}
+
+static void on_print_marksheet_btn_clicked(GtkButton *btn, gpointer user_data)
+{
+    GtkWidget *win = GTK_WIDGET(user_data);
+    const StudentReportCard *card = (const StudentReportCard *)g_object_get_data(G_OBJECT(win), "marksheet_data");
+    GtkWidget *lbl = GTK_WIDGET(g_object_get_data(G_OBJECT(win), "marksheet_status_lbl"));
+    char err_msg[256] = {0};
+
+    PrintPdfStatus st = print_pdf_print_marksheet(GTK_WIDGET(btn), card, err_msg, sizeof(err_msg));
+    if (!lbl || st == PRINT_PDF_CANCELLED) return;
+
+    if (st == PRINT_PDF_OK) {
+        gtk_label_set_text(GTK_LABEL(lbl), "Report Card sent to printer successfully.");
+        gtk_widget_remove_css_class(lbl, "card-kpi-red");
+        gtk_widget_add_css_class(lbl, "card-kpi-green");
+        gtk_widget_set_visible(lbl, TRUE);
+    } else {
+        gtk_label_set_text(GTK_LABEL(lbl), err_msg[0] ? err_msg : "Printing failed.");
+        gtk_widget_remove_css_class(lbl, "card-kpi-green");
+        gtk_widget_add_css_class(lbl, "card-kpi-red");
+        gtk_widget_set_visible(lbl, TRUE);
+    }
+}
+
+static void on_download_marksheet_pdf_clicked(GtkButton *btn, gpointer user_data)
+{
+    GtkWidget *win = GTK_WIDGET(user_data);
+    const StudentReportCard *card = (const StudentReportCard *)g_object_get_data(G_OBJECT(win), "marksheet_data");
+    GtkWidget *lbl = GTK_WIDGET(g_object_get_data(G_OBJECT(win), "marksheet_status_lbl"));
+    print_pdf_prompt_export_marksheet(GTK_WIDGET(btn), card, on_marksheet_pdf_done, lbl);
+}
+
 static void show_marksheet_dialog(const StudentReportCard *card)
 {
     if (!card) return;
 
-    GtkWidget *win = school_dialog_new("Official Student Report Card", 560, 580);
+    SchoolSettings settings = {0};
+    settings_service_get(&settings);
+    const char *sch_name = settings.school_name[0] ? settings.school_name : "APCOACHING Institution";
+
+    GtkWidget *win = school_dialog_new("Official Student Report Card", 580, 620);
+    StudentReportCard *card_copy = g_new(StudentReportCard, 1);
+    *card_copy = *card;
+    g_object_set_data_full(G_OBJECT(win), "marksheet_data", card_copy, g_free);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_start(box, 28);
@@ -1244,7 +1305,7 @@ static void show_marksheet_dialog(const StudentReportCard *card)
     school_dialog_set_child(win, box);
 
     /* Institutional Header */
-    GtkWidget *inst_title = gtk_label_new("ST. XAVIER INTERNATIONAL SCHOOL");
+    GtkWidget *inst_title = gtk_label_new(sch_name);
     gtk_widget_add_css_class(inst_title, "dashboard-card-title");
     gtk_label_set_xalign(GTK_LABEL(inst_title), 0.5f);
     gtk_box_append(GTK_BOX(box), inst_title);
@@ -1383,10 +1444,28 @@ static void show_marksheet_dialog(const StudentReportCard *card)
 
     gtk_box_append(GTK_BOX(box), sig_box);
 
-    /* Close Button */
-    GtkWidget *btn_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+    /* Inline Print/PDF Status Feedback */
+    GtkWidget *lbl_status = gtk_label_new("");
+    gtk_widget_add_css_class(lbl_status, "card");
+    gtk_label_set_wrap(GTK_LABEL(lbl_status), TRUE);
+    gtk_widget_set_visible(lbl_status, FALSE);
+    g_object_set_data(G_OBJECT(win), "marksheet_status_lbl", lbl_status);
+    gtk_box_append(GTK_BOX(box), lbl_status);
+
+    /* Action Buttons: Print, Download PDF, Close */
+    GtkWidget *btn_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     gtk_widget_set_halign(btn_box, GTK_ALIGN_END);
-    gtk_widget_set_margin_top(btn_box, 16);
+    gtk_widget_set_margin_top(btn_box, 12);
+
+    GtkWidget *print_btn = gtk_button_new_with_label("Print Report Card");
+    gtk_widget_add_css_class(print_btn, "btn-secondary");
+    g_signal_connect(print_btn, "clicked", G_CALLBACK(on_print_marksheet_btn_clicked), win);
+    gtk_box_append(GTK_BOX(btn_box), print_btn);
+
+    GtkWidget *pdf_btn = gtk_button_new_with_label("Download PDF");
+    gtk_widget_add_css_class(pdf_btn, "btn-secondary");
+    g_signal_connect(pdf_btn, "clicked", G_CALLBACK(on_download_marksheet_pdf_clicked), win);
+    gtk_box_append(GTK_BOX(btn_box), pdf_btn);
 
     GtkWidget *close_btn = gtk_button_new_with_label("Close Marksheet");
     gtk_widget_add_css_class(close_btn, "btn-primary");
