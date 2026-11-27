@@ -33,6 +33,7 @@ set(SOURCES
     src/modules/timetable.c
     src/modules/reports.c
     src/modules/settings.c
+    src/utils/print_pdf.c
     src/ui/login.c
     src/ui/dialog.c
     src/ui/window.c
@@ -241,6 +242,27 @@ target_link_libraries(test_settings PRIVATE
 )
 if(WIN32)
     target_link_libraries(test_settings PRIVATE ws2_32)
+endif()
+
+# Vector PDF export unit test executable
+add_executable(test_print_pdf
+    tests/test_print_pdf.c
+    src/utils/print_pdf.c
+    src/modules/settings.c
+    src/modules/reports.c
+    src/modules/fees.c
+    src/modules/exams.c
+    src/database.c
+)
+target_include_directories(test_print_pdf PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+target_link_libraries(test_print_pdf PRIVATE
+    PkgConfig::GTK4
+    PkgConfig::SQLITE3
+)
+if(WIN32)
+    target_link_libraries(test_print_pdf PRIVATE ws2_32)
 endif()
 
 # End-to-End System Integration test executable
