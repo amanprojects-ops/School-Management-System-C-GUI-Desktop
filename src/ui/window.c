@@ -262,7 +262,7 @@ void school_window_new(GtkApplication *app)
     GtkWidget *status_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
     gtk_widget_add_css_class(status_bar, "status-bar");
 
-    GtkWidget *status_label = gtk_label_new("APCOACHING v2.0.0  •  Authenticated");
+    GtkWidget *status_label = gtk_label_new("APCOACHING v2.1.0  •  Authenticated");
     status_bar_label = status_label;
     gtk_widget_set_halign(status_label, GTK_ALIGN_START);
     gtk_widget_set_hexpand(status_label, TRUE);
