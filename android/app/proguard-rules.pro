@@ -1,0 +1,2 @@
+-keep class com.apcoaching.schoolcms.nativebridge.NativeBridge { *; }
+-dontwarn org.json.**
