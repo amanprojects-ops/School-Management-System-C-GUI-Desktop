@@ -6,7 +6,9 @@
 #ifndef SCHOOLCMS_DASHBOARD_H
 #define SCHOOLCMS_DASHBOARD_H
 
+#ifndef __ANDROID__
 #include <gtk/gtk.h>
+#endif
 #include <stdbool.h>
 
 #define DASHBOARD_MAX_RECENT 5
@@ -106,6 +108,7 @@ bool dashboard_service_get_weekly_attendance(AttendanceChartPoint *out_points, i
  */
 bool dashboard_service_get_fee_trends(FeeChartPoint *out_points, int *out_count);
 
+#ifndef __ANDROID__
 /* ── UI Page API ──────────────────────────────────────────────────── */
 
 /**
@@ -119,5 +122,6 @@ GtkWidget *school_dashboard_new(void);
  * @param dashboard_widget The widget returned by school_dashboard_new.
  */
 void school_dashboard_refresh(GtkWidget *dashboard_widget);
+#endif /* !__ANDROID__ */
 
 #endif /* SCHOOLCMS_DASHBOARD_H */
