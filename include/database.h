@@ -75,6 +75,16 @@ int db_get_version(void);
 DbResult db_begin_transaction(void);
 
 /**
+ * @brief Acquire recursive process-wide DB synchronization mutex.
+ */
+void db_lock(void);
+
+/**
+ * @brief Release recursive process-wide DB synchronization mutex.
+ */
+void db_unlock(void);
+
+/**
  * @brief Commit active transaction.
  * @return DB_SUCCESS on success.
  */
