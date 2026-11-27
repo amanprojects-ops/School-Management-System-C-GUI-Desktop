@@ -12,7 +12,7 @@ BUILD_DIR="$SCRIPT_DIR/build"
 cd "$BUILD_DIR"
 
 echo "================================================================"
-echo "          Running SchoolCMS Complete Test Suite (13 Targets)    "
+echo "          Running SchoolCMS Complete Test Suite (14 Targets)    "
 echo "================================================================"
 
 TESTS=(
@@ -28,6 +28,7 @@ TESTS=(
     "test_timetable.exe"
     "test_reports.exe"
     "test_settings.exe"
+    "test_print_pdf.exe"
     "test_system_integration.exe"
 )
 
@@ -56,7 +57,7 @@ echo "Test Execution Summary: $PASSED / $TOTAL Passed (Failed: $FAILED)"
 echo "================================================================"
 
 if [ $FAILED -eq 0 ]; then
-    echo ">>> ALL 13 TEST SUITES PASSED CLEANLY (100%) <<<"
+    echo ">>> ALL 14 TEST SUITES PASSED CLEANLY (100%) <<<"
     exit 0
 else
     echo ">>> ONE OR MORE TESTS FAILED <<<"
