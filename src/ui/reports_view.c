@@ -4,6 +4,7 @@
  */
 
 #include "ui/reports_view.h"
+#include "utils/print_pdf.h"
 #include "reports.h"
 #include "classes.h"
 #include "auth/auth.h"
@@ -28,6 +29,8 @@ typedef struct {
     GtkWidget *summary_box;
     GtkWidget *summary_label;
     GtkWidget *export_btn;
+    GtkWidget *pdf_btn;
+    GtkWidget *print_btn;
     GtkWidget *status_banner;
 
     /* Category Buttons */
@@ -210,6 +213,68 @@ static void on_export_csv_clicked(GtkButton *btn, gpointer user_data)
     }
 }
 
+static void on_report_pdf_saved(PrintPdfStatus status, const char *path_or_err, gpointer user_data)
+{
+    ReportsWidgets *rw = (ReportsWidgets *)user_data;
+    if (!rw || !rw->status_banner || status == PRINT_PDF_CANCELLED) return;
+
+    if (status == PRINT_PDF_OK) {
+        char msg[512];
+        snprintf(msg, sizeof(msg), "Report PDF saved successfully: %s",
+                 path_or_err ? path_or_err : "exports/*.pdf");
+        gtk_label_set_text(GTK_LABEL(rw->status_banner), msg);
+        gtk_widget_remove_css_class(rw->status_banner, "card-kpi-red");
+        gtk_widget_add_css_class(rw->status_banner, "card-kpi-green");
+        gtk_widget_set_visible(rw->status_banner, TRUE);
+    } else {
+        gtk_label_set_text(GTK_LABEL(rw->status_banner),
+                           path_or_err ? path_or_err : "Failed to export PDF report.");
+        gtk_widget_remove_css_class(rw->status_banner, "card-kpi-green");
+        gtk_widget_add_css_class(rw->status_banner, "card-kpi-red");
+        gtk_widget_set_visible(rw->status_banner, TRUE);
+    }
+}
+
+static void on_download_pdf_clicked(GtkButton *btn, gpointer user_data)
+{
+    ReportsWidgets *rw = (ReportsWidgets *)user_data;
+    if (!auth_current_user_can_access("REPORTS", false)) {
+        gtk_label_set_text(GTK_LABEL(rw->status_banner), "Access denied: cannot export reports.");
+        gtk_widget_remove_css_class(rw->status_banner, "card-kpi-green");
+        gtk_widget_add_css_class(rw->status_banner, "card-kpi-red");
+        gtk_widget_set_visible(rw->status_banner, TRUE);
+        return;
+    }
+    print_pdf_prompt_export_report(GTK_WIDGET(btn), &rw->current_data, on_report_pdf_saved, rw);
+}
+
+static void on_print_report_clicked(GtkButton *btn, gpointer user_data)
+{
+    ReportsWidgets *rw = (ReportsWidgets *)user_data;
+    if (!auth_current_user_can_access("REPORTS", false)) {
+        gtk_label_set_text(GTK_LABEL(rw->status_banner), "Access denied: cannot print reports.");
+        gtk_widget_remove_css_class(rw->status_banner, "card-kpi-green");
+        gtk_widget_add_css_class(rw->status_banner, "card-kpi-red");
+        gtk_widget_set_visible(rw->status_banner, TRUE);
+        return;
+    }
+
+    char err_msg[256] = {0};
+    PrintPdfStatus st = print_pdf_print_report(GTK_WIDGET(btn), &rw->current_data, err_msg, sizeof(err_msg));
+    if (st == PRINT_PDF_OK) {
+        gtk_label_set_text(GTK_LABEL(rw->status_banner), "Report sent to printer successfully.");
+        gtk_widget_remove_css_class(rw->status_banner, "card-kpi-red");
+        gtk_widget_add_css_class(rw->status_banner, "card-kpi-green");
+        gtk_widget_set_visible(rw->status_banner, TRUE);
+    } else if (st == PRINT_PDF_ERROR) {
+        gtk_label_set_text(GTK_LABEL(rw->status_banner),
+                           err_msg[0] ? err_msg : "Failed to print report.");
+        gtk_widget_remove_css_class(rw->status_banner, "card-kpi-green");
+        gtk_widget_add_css_class(rw->status_banner, "card-kpi-red");
+        gtk_widget_set_visible(rw->status_banner, TRUE);
+    }
+}
+
 /* ── Report Generation and Table Preview ──────────────────────────── */
 
 static const char *report_category_module(int cat)
@@ -270,11 +335,16 @@ static void refresh_report(ReportsWidgets *rw)
     if (!current_allowed) {
         rw->current_data.row_count = 0;
         if (rw->export_btn) gtk_widget_set_visible(rw->export_btn, FALSE);
+        if (rw->pdf_btn)    gtk_widget_set_visible(rw->pdf_btn, FALSE);
+        if (rw->print_btn)  gtk_widget_set_visible(rw->print_btn, FALSE);
         GtkWidget *denied = gtk_label_new("No report categories are permitted for your current role.");
         gtk_widget_add_css_class(denied, "dim-label");
         gtk_box_append(GTK_BOX(rw->preview_box), denied);
         return;
     }
+
+    if (rw->pdf_btn)   gtk_widget_set_visible(rw->pdf_btn, TRUE);
+    if (rw->print_btn) gtk_widget_set_visible(rw->print_btn, TRUE);
 
     ReportFilter f;
     memset(&f, 0, sizeof(ReportFilter));
@@ -387,7 +457,7 @@ GtkWidget *school_reports_view_new(void)
     gtk_label_set_xalign(GTK_LABEL(title), 0.0f);
     gtk_box_append(GTK_BOX(title_box), title);
 
-    GtkWidget *sub = gtk_label_new("Generate and export institutional records, registers, collections, and merit lists to CSV.");
+    GtkWidget *sub = gtk_label_new("Generate, print, and export institutional records, registers, collections, and merit lists (PDF / CSV).");
     gtk_widget_add_css_class(sub, "page-subtitle");
     gtk_label_set_xalign(GTK_LABEL(sub), 0.0f);
     gtk_box_append(GTK_BOX(title_box), sub);
@@ -396,6 +466,18 @@ GtkWidget *school_reports_view_new(void)
     GtkWidget *spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     gtk_widget_set_hexpand(spacer, TRUE);
     gtk_box_append(GTK_BOX(hdr), spacer);
+
+    GtkWidget *print_btn = gtk_button_new_with_label("Print Report");
+    rw->print_btn = print_btn;
+    gtk_widget_add_css_class(print_btn, "btn-secondary");
+    g_signal_connect(print_btn, "clicked", G_CALLBACK(on_print_report_clicked), rw);
+    gtk_box_append(GTK_BOX(hdr), print_btn);
+
+    GtkWidget *pdf_btn = gtk_button_new_with_label("Download PDF");
+    rw->pdf_btn = pdf_btn;
+    gtk_widget_add_css_class(pdf_btn, "btn-secondary");
+    g_signal_connect(pdf_btn, "clicked", G_CALLBACK(on_download_pdf_clicked), rw);
+    gtk_box_append(GTK_BOX(hdr), pdf_btn);
 
     GtkWidget *export_btn = gtk_button_new_with_label("Export to CSV");
     rw->export_btn = export_btn;
