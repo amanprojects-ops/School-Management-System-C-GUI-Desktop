@@ -5,6 +5,8 @@
 
 #include "ui/fees_view.h"
 #include "ui/dialog.h"
+#include "utils/print_pdf.h"
+#include "settings.h"
 #include "fees.h"
 #include "classes.h"
 #include "student.h"
@@ -1132,11 +1134,71 @@ static void show_add_edit_structure_dialog(FeesViewWidgets *fvw, int structure_i
 }
 
 /* 2. Printable Institutional Receipt Dialog */
+static void on_receipt_pdf_done(PrintPdfStatus status, const char *path_or_err, gpointer user_data)
+{
+    GtkWidget *lbl = GTK_WIDGET(user_data);
+    if (!lbl || status == PRINT_PDF_CANCELLED) return;
+
+    if (status == PRINT_PDF_OK) {
+        char msg[512];
+        snprintf(msg, sizeof(msg), "Receipt PDF downloaded: %s",
+                 path_or_err ? path_or_err : "exports/*.pdf");
+        gtk_label_set_text(GTK_LABEL(lbl), msg);
+        gtk_widget_remove_css_class(lbl, "card-kpi-red");
+        gtk_widget_add_css_class(lbl, "card-kpi-green");
+        gtk_widget_set_visible(lbl, TRUE);
+    } else {
+        gtk_label_set_text(GTK_LABEL(lbl), path_or_err ? path_or_err : "Failed to save PDF receipt.");
+        gtk_widget_remove_css_class(lbl, "card-kpi-green");
+        gtk_widget_add_css_class(lbl, "card-kpi-red");
+        gtk_widget_set_visible(lbl, TRUE);
+    }
+}
+
+static void on_print_receipt_btn_clicked(GtkButton *btn, gpointer user_data)
+{
+    GtkWidget *win = GTK_WIDGET(user_data);
+    const FeePayment *pay = (const FeePayment *)g_object_get_data(G_OBJECT(win), "receipt_data");
+    GtkWidget *lbl = GTK_WIDGET(g_object_get_data(G_OBJECT(win), "receipt_status_lbl"));
+    char err_msg[256] = {0};
+
+    PrintPdfStatus st = print_pdf_print_receipt(GTK_WIDGET(btn), pay, err_msg, sizeof(err_msg));
+    if (!lbl || st == PRINT_PDF_CANCELLED) return;
+
+    if (st == PRINT_PDF_OK) {
+        gtk_label_set_text(GTK_LABEL(lbl), "Receipt sent to printer successfully.");
+        gtk_widget_remove_css_class(lbl, "card-kpi-red");
+        gtk_widget_add_css_class(lbl, "card-kpi-green");
+        gtk_widget_set_visible(lbl, TRUE);
+    } else {
+        gtk_label_set_text(GTK_LABEL(lbl), err_msg[0] ? err_msg : "Printing failed.");
+        gtk_widget_remove_css_class(lbl, "card-kpi-green");
+        gtk_widget_add_css_class(lbl, "card-kpi-red");
+        gtk_widget_set_visible(lbl, TRUE);
+    }
+}
+
+static void on_download_receipt_pdf_clicked(GtkButton *btn, gpointer user_data)
+{
+    GtkWidget *win = GTK_WIDGET(user_data);
+    const FeePayment *pay = (const FeePayment *)g_object_get_data(G_OBJECT(win), "receipt_data");
+    GtkWidget *lbl = GTK_WIDGET(g_object_get_data(G_OBJECT(win), "receipt_status_lbl"));
+    print_pdf_prompt_export_receipt(GTK_WIDGET(btn), pay, on_receipt_pdf_done, lbl);
+}
+
 static void show_receipt_dialog(const FeePayment *p)
 {
     if (!p) return;
 
-    GtkWidget *win = school_dialog_new("Fee Payment Receipt", 500, 520);
+    SchoolSettings settings = {0};
+    settings_service_get(&settings);
+    const char *sch_name = settings.school_name[0] ? settings.school_name : "APCOACHING Institution";
+    const char *curr = settings.currency_symbol[0] ? settings.currency_symbol : "₹";
+
+    GtkWidget *win = school_dialog_new("Fee Payment Receipt", 520, 560);
+    FeePayment *pay_copy = g_new(FeePayment, 1);
+    *pay_copy = *p;
+    g_object_set_data_full(G_OBJECT(win), "receipt_data", pay_copy, g_free);
 
     GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_start(box, 28);
@@ -1146,12 +1208,17 @@ static void show_receipt_dialog(const FeePayment *p)
     school_dialog_set_child(win, box);
 
     /* Institutional Header */
-    GtkWidget *inst_title = gtk_label_new("ST. XAVIER INTERNATIONAL SCHOOL");
+    GtkWidget *inst_title = gtk_label_new(sch_name);
     gtk_widget_add_css_class(inst_title, "dashboard-card-title");
     gtk_label_set_xalign(GTK_LABEL(inst_title), 0.5f);
     gtk_box_append(GTK_BOX(box), inst_title);
 
-    GtkWidget *inst_sub = gtk_label_new("Affiliated to CBSE, New Delhi — School Code: 40218\nOfficial Fee Acknowledgment Receipt");
+    char sub_line[384];
+    snprintf(sub_line, sizeof(sub_line), "%s%s%s\nOfficial Fee Acknowledgment Receipt",
+             settings.school_address[0] ? settings.school_address : "Academic Campus",
+             settings.school_phone[0] ? " • Tel: " : "",
+             settings.school_phone);
+    GtkWidget *inst_sub = gtk_label_new(sub_line);
     gtk_widget_add_css_class(inst_sub, "dim-label");
     gtk_label_set_justify(GTK_LABEL(inst_sub), GTK_JUSTIFY_CENTER);
     gtk_box_append(GTK_BOX(box), inst_sub);
@@ -1199,13 +1266,13 @@ static void show_receipt_dialog(const FeePayment *p)
     GtkWidget *part_card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
     gtk_widget_add_css_class(part_card, "card");
 
-    char p1[256], p2[128], p3[128], p4[128];
+    char p1[256], p2[128], p3[160], p4[128];
     snprintf(p1, sizeof(p1), "Fee Particulars: %s", p->fee_structure_name);
     snprintf(p2, sizeof(p2), "Payment Mode: %s %s", p->payment_method,
              strlen(p->transaction_ref) > 0 ? p->transaction_ref : "");
-    snprintf(p3, sizeof(p3), "Base Amount: ₹%.2f   |   Discount: ₹%.2f   |   Fine: ₹%.2f",
-             p->amount_paid, p->discount, p->late_fine);
-    snprintf(p4, sizeof(p4), "TOTAL AMOUNT PAID: ₹%.2f", p->total_amount);
+    snprintf(p3, sizeof(p3), "Base Amount: %s%.2f   |   Discount: %s%.2f   |   Fine: %s%.2f",
+             curr, p->amount_paid, curr, p->discount, curr, p->late_fine);
+    snprintf(p4, sizeof(p4), "TOTAL AMOUNT PAID: %s%.2f", curr, p->total_amount);
 
     GtkWidget *lp1 = gtk_label_new(p1);
     gtk_label_set_xalign(GTK_LABEL(lp1), 0.0f);
@@ -1247,10 +1314,28 @@ static void show_receipt_dialog(const FeePayment *p)
 
     gtk_box_append(GTK_BOX(box), sign_box);
 
-    /* Close Button */
-    GtkWidget *btn_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+    /* Inline Print/PDF Status Feedback */
+    GtkWidget *lbl_status = gtk_label_new("");
+    gtk_widget_add_css_class(lbl_status, "card");
+    gtk_label_set_wrap(GTK_LABEL(lbl_status), TRUE);
+    gtk_widget_set_visible(lbl_status, FALSE);
+    g_object_set_data(G_OBJECT(win), "receipt_status_lbl", lbl_status);
+    gtk_box_append(GTK_BOX(box), lbl_status);
+
+    /* Action Buttons: Print, Download PDF, Close */
+    GtkWidget *btn_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     gtk_widget_set_halign(btn_box, GTK_ALIGN_END);
-    gtk_widget_set_margin_top(btn_box, 16);
+    gtk_widget_set_margin_top(btn_box, 12);
+
+    GtkWidget *print_btn = gtk_button_new_with_label("Print Receipt");
+    gtk_widget_add_css_class(print_btn, "btn-secondary");
+    g_signal_connect(print_btn, "clicked", G_CALLBACK(on_print_receipt_btn_clicked), win);
+    gtk_box_append(GTK_BOX(btn_box), print_btn);
+
+    GtkWidget *pdf_btn = gtk_button_new_with_label("Download PDF");
+    gtk_widget_add_css_class(pdf_btn, "btn-secondary");
+    g_signal_connect(pdf_btn, "clicked", G_CALLBACK(on_download_receipt_pdf_clicked), win);
+    gtk_box_append(GTK_BOX(btn_box), pdf_btn);
 
     GtkWidget *close_btn = gtk_button_new_with_label("Close Receipt");
     gtk_widget_add_css_class(close_btn, "btn-primary");
