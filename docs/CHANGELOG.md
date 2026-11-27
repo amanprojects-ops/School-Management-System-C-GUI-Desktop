@@ -6,7 +6,10 @@ This document tracks all version releases, milestone tags, and feature additions
 
 ## Version Milestones
 
-### v1.2.0 (Current Release)
+### v2.0.0 (Current Release)
+- APCOACHING v2.0.0 release
+
+### v1.2.0 
 - APCOACHING v1.2.0 release
 
 ### v1.1.6 
@@ -93,3 +96,4 @@ This repository maintains 34 annotated Git tags tracking each milestone from ini
 | `v1.1.5` | `3dc5204` | APCOACHING v1.1.5 release |
 | `v1.1.6` | `f0e2f7a` | APCOACHING v1.1.6 release |
 | `v1.2.0` | `f612425` | APCOACHING v1.2.0 release |
+| `v2.0.0` | `cda6ec1` | APCOACHING v2.0.0 release |
