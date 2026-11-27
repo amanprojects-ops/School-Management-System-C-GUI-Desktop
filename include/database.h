@@ -11,9 +11,10 @@
 
 #include <sqlite3.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 /** Current target schema version */
-#define DB_CURRENT_VERSION 2
+#define DB_CURRENT_VERSION 3
 
 /** Default database filename */
 #define DB_DEFAULT_FILE "schoolcms.db"
@@ -113,5 +114,41 @@ DbResult db_restore(const char *src_path);
  * @return DB_SUCCESS on success.
  */
 DbResult db_log_activity(int user_id, const char *action, const char *module, const char *details);
+
+/* ── Multi-Device Sync State & Collision-Free Code Helpers ─────────── */
+
+/**
+ * @brief Read a sync configuration/state value by key from sync_state table.
+ */
+bool db_sync_get_state(const char *key, char *out_val, size_t val_size);
+
+/**
+ * @brief Store or update a sync configuration/state key-value pair.
+ */
+bool db_sync_set_state(const char *key, const char *value);
+
+/**
+ * @brief Get the unique persistent local device identifier (e.g. "DEV-a1b2c3d4e5f6").
+ */
+bool db_sync_get_device_id(char *out_id, size_t size);
+
+/**
+ * @brief Get the local short device prefix used for offline sequential codes ("D" Desktop / "M" Mobile).
+ */
+bool db_sync_get_device_prefix(char *out_prefix, size_t size);
+
+/**
+ * @brief Generate a unique RFC 4122 UUID v4 string via SQLite CSPRNG.
+ */
+bool db_sync_generate_uuid(char *out_uuid, size_t size);
+
+/**
+ * @brief Generate a collision-free device-prefixed sequential code (e.g. "ADM-2026-D0001", "RCP-2026-D0001").
+ */
+bool db_sync_generate_prefixed_code(const char *table_name,
+                                    const char *col_name,
+                                    const char *code_prefix,
+                                    char *out_buf,
+                                    size_t buf_size);
 
 #endif /* SCHOOLCMS_DATABASE_H */
