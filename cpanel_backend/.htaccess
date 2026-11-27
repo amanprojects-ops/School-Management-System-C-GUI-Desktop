@@ -1,0 +1,20 @@
+# SchoolCMS cPanel API Apache/LiteSpeed Rules
+Options -Indexes
+
+# Prevent direct download of SQL schemas, configs, docs, or backups
+<FilesMatch "\.(sql|md|sample\.php|log|ini)$|config(\.local)?\.php$">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Preserve Authorization Bearer header on shared cPanel PHP CGI/FastCGI hosts
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+</IfModule>
