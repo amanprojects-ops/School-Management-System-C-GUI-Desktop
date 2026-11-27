@@ -17,7 +17,7 @@ BUILD_DIR = PROJECT_ROOT / "build"
 DIST_DIR = PROJECT_ROOT / "dist"
 APP_NAME = "APCOACHING"
 EXE_NAME = "APCOACHING.exe"
-PACKAGE_NAME = "APCOACHING-v2.0.0-windows-x64"
+PACKAGE_NAME = "APCOACHING-v2.1.0-windows-x64"
 TARGET_DIR = DIST_DIR / PACKAGE_NAME
 ZIP_FILE = DIST_DIR / f"{PACKAGE_NAME}.zip"
 
@@ -191,7 +191,7 @@ start "" "%~dp0{EXE_NAME}"
         f.write(bat_content)
 
     readme_content = f"""# {APP_NAME} — Standalone Portable Windows Release
-Version 2.0.0 (x86_64)
+Version 2.1.0 (x86_64)
 
 ## Running the Application
 Double-click `Run_{APP_NAME}.bat` or `{EXE_NAME}` to launch the application.
