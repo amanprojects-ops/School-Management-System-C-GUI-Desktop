@@ -73,4 +73,9 @@ void school_window_show_login(void);
  */
 void school_window_show_app(void);
 
+/**
+ * @brief Refresh the currently visible content page after background updates.
+ */
+void school_window_refresh_active_page(void);
+
 #endif /* SCHOOLCMS_UI_WINDOW_H */
