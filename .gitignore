@@ -27,3 +27,6 @@ Thumbs.db
 dist/
 exports/
 backups/
+
+# cPanel live secrets (never commit local credentials)
+cpanel_backend/config.local.php
