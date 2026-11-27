@@ -4,10 +4,217 @@
  */
 
 #include "database.h"
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#ifdef __ANDROID__
+#define SYNC_DEFAULT_DEVICE_PREFIX "M"
+#else
+#define SYNC_DEFAULT_DEVICE_PREFIX "D"
+#endif
+
+static const char * const SYNCED_TABLES[] = {
+    "roles", "users", "academic_years", "classes", "sections",
+    "teachers", "staff", "students", "subjects", "attendance",
+    "fee_structures", "fee_payments", "examinations", "exam_subjects",
+    "exam_results", "timetables", "notifications", "settings",
+    "role_permissions"
+};
+static const size_t SYNCED_TABLE_COUNT = sizeof(SYNCED_TABLES) / sizeof(SYNCED_TABLES[0]);
+
+static bool table_has_column(sqlite3 *db, const char *table_name, const char *col_name)
+{
+    char sql[128];
+    snprintf(sql, sizeof(sql), "PRAGMA table_info(%s);", table_name);
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+
+    bool found = false;
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        const char *c = (const char *)sqlite3_column_text(stmt, 1);
+        if (c && strcmp(c, col_name) == 0) {
+            found = true;
+            break;
+        }
+    }
+    sqlite3_finalize(stmt);
+    return found;
+}
+
+static DbResult run_sync_migration_v3(sqlite3 *db)
+{
+    static const char *SYNC_INFRA_DDL =
+        "CREATE TABLE IF NOT EXISTS sync_state (\n"
+        "    key TEXT PRIMARY KEY NOT NULL,\n"
+        "    value TEXT NOT NULL\n"
+        ");\n"
+        "CREATE TABLE IF NOT EXISTS sync_outbox (\n"
+        "    id INTEGER PRIMARY KEY AUTOINCREMENT,\n"
+        "    table_name TEXT NOT NULL,\n"
+        "    record_uuid TEXT NOT NULL,\n"
+        "    operation TEXT NOT NULL CHECK(operation IN ('UPSERT', 'DELETE')),\n"
+        "    payload_json TEXT NOT NULL DEFAULT '{}',\n"
+        "    updated_at_ms INTEGER NOT NULL,\n"
+        "    synced INTEGER NOT NULL DEFAULT 0,\n"
+        "    created_at DATETIME DEFAULT CURRENT_TIMESTAMP\n"
+        ");\n"
+        "CREATE INDEX IF NOT EXISTS idx_sync_outbox_pending ON sync_outbox(synced, id);\n"
+        "CREATE INDEX IF NOT EXISTS idx_sync_outbox_uuid ON sync_outbox(table_name, record_uuid);\n"
+        "CREATE TABLE IF NOT EXISTS sync_tombstones (\n"
+        "    id INTEGER PRIMARY KEY AUTOINCREMENT,\n"
+        "    table_name TEXT NOT NULL,\n"
+        "    record_uuid TEXT NOT NULL,\n"
+        "    origin_device_id TEXT DEFAULT '',\n"
+        "    deleted_at_ms INTEGER NOT NULL,\n"
+        "    UNIQUE(table_name, record_uuid)\n"
+        ");\n"
+        "INSERT OR IGNORE INTO sync_state (key, value) VALUES\n"
+        "    ('device_id', 'DEV-' || lower(hex(randomblob(6)))),\n"
+        "    ('device_prefix', '" SYNC_DEFAULT_DEVICE_PREFIX "'),\n"
+        "    ('last_server_seq', '0'),\n"
+        "    ('sync_applying_remote', '0'),\n"
+        "    ('cpanel_url', ''),\n"
+        "    ('device_token', ''),\n"
+        "    ('sync_enabled', '0'),\n"
+        "    ('last_sync_at', '');\n";
+
+    char *errmsg = NULL;
+    if (sqlite3_exec(db, SYNC_INFRA_DDL, NULL, NULL, &errmsg) != SQLITE_OK) {
+        fprintf(stderr, "[DB ERROR] Migration V3 sync infra failed: %s\n", errmsg ? errmsg : "unknown");
+        sqlite3_free(errmsg);
+        return DB_ERROR_MIGRATION;
+    }
+
+    static const char *uuid_expr =
+        "lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || "
+        "substr(hex(randomblob(2)), 2) || '-' || "
+        "substr('89ab', ((random() & 3) + 1), 1) || "
+        "substr(hex(randomblob(2)), 2) || '-' || hex(randomblob(6)))";
+
+    static const char *now_ms_expr =
+        "CAST((julianday('now') - 2440587.5) * 86400000.0 AS INTEGER)";
+
+    for (size_t i = 0; i < SYNCED_TABLE_COUNT; i++) {
+        const char *tbl = SYNCED_TABLES[i];
+        char sql[2048];
+
+        if (!table_has_column(db, tbl, "sync_uuid")) {
+            snprintf(sql, sizeof(sql), "ALTER TABLE %s ADD COLUMN sync_uuid TEXT;", tbl);
+            if (sqlite3_exec(db, sql, NULL, NULL, &errmsg) != SQLITE_OK) {
+                fprintf(stderr, "[DB ERROR] Add sync_uuid on %s: %s\n", tbl, errmsg ? errmsg : "err");
+                sqlite3_free(errmsg);
+                return DB_ERROR_MIGRATION;
+            }
+        }
+        if (!table_has_column(db, tbl, "origin_device_id")) {
+            snprintf(sql, sizeof(sql), "ALTER TABLE %s ADD COLUMN origin_device_id TEXT NOT NULL DEFAULT '';", tbl);
+            if (sqlite3_exec(db, sql, NULL, NULL, &errmsg) != SQLITE_OK) {
+                sqlite3_free(errmsg);
+                return DB_ERROR_MIGRATION;
+            }
+        }
+        if (!table_has_column(db, tbl, "updated_at_ms")) {
+            snprintf(sql, sizeof(sql), "ALTER TABLE %s ADD COLUMN updated_at_ms INTEGER NOT NULL DEFAULT 0;", tbl);
+            if (sqlite3_exec(db, sql, NULL, NULL, &errmsg) != SQLITE_OK) {
+                sqlite3_free(errmsg);
+                return DB_ERROR_MIGRATION;
+            }
+        }
+        if (!table_has_column(db, tbl, "deleted_at_ms")) {
+            snprintf(sql, sizeof(sql), "ALTER TABLE %s ADD COLUMN deleted_at_ms INTEGER NOT NULL DEFAULT 0;", tbl);
+            if (sqlite3_exec(db, sql, NULL, NULL, &errmsg) != SQLITE_OK) {
+                sqlite3_free(errmsg);
+                return DB_ERROR_MIGRATION;
+            }
+        }
+
+        /* Backfill any existing rows created prior to V3 without triggering outbox spam */
+        snprintf(sql, sizeof(sql),
+                 "UPDATE %s SET "
+                 "  sync_uuid = CASE WHEN sync_uuid IS NULL OR sync_uuid = '' THEN (%s) ELSE sync_uuid END, "
+                 "  origin_device_id = CASE WHEN origin_device_id = '' THEN COALESCE((SELECT value FROM sync_state WHERE key='device_id'), '') ELSE origin_device_id END, "
+                 "  updated_at_ms = CASE WHEN updated_at_ms <= 0 THEN (%s) ELSE updated_at_ms END "
+                 "WHERE sync_uuid IS NULL OR sync_uuid = '' OR updated_at_ms <= 0;",
+                 tbl, uuid_expr, now_ms_expr);
+        if (sqlite3_exec(db, sql, NULL, NULL, &errmsg) != SQLITE_OK) {
+            fprintf(stderr, "[DB ERROR] Backfill on %s: %s\n", tbl, errmsg ? errmsg : "err");
+            sqlite3_free(errmsg);
+            return DB_ERROR_MIGRATION;
+        }
+
+        snprintf(sql, sizeof(sql),
+                 "CREATE UNIQUE INDEX IF NOT EXISTS idx_%s_sync_uuid ON %s(sync_uuid);",
+                 tbl, tbl);
+        if (sqlite3_exec(db, sql, NULL, NULL, &errmsg) != SQLITE_OK) {
+            sqlite3_free(errmsg);
+            return DB_ERROR_MIGRATION;
+        }
+
+        /* Install INSERT / UPDATE / DELETE outbox triggers */
+        snprintf(sql, sizeof(sql),
+                 "DROP TRIGGER IF EXISTS trg_%s_sync_ins;\n"
+                 "CREATE TRIGGER trg_%s_sync_ins AFTER INSERT ON %s\n"
+                 "WHEN COALESCE((SELECT value FROM sync_state WHERE key = 'sync_applying_remote'), '0') != '1'\n"
+                 "BEGIN\n"
+                 "    UPDATE %s SET\n"
+                 "        sync_uuid = CASE WHEN sync_uuid IS NULL OR sync_uuid = '' THEN (%s) ELSE sync_uuid END,\n"
+                 "        origin_device_id = CASE WHEN origin_device_id IS NULL OR origin_device_id = '' THEN COALESCE((SELECT value FROM sync_state WHERE key = 'device_id'), '') ELSE origin_device_id END,\n"
+                 "        updated_at_ms = CASE WHEN updated_at_ms <= 0 THEN (%s) ELSE updated_at_ms END\n"
+                 "    WHERE rowid = NEW.rowid;\n"
+                 "    INSERT INTO sync_outbox (table_name, record_uuid, operation, payload_json, updated_at_ms)\n"
+                 "    SELECT '%s', sync_uuid, 'UPSERT', '{}', updated_at_ms FROM %s WHERE rowid = NEW.rowid;\n"
+                 "END;",
+                 tbl, tbl, tbl, tbl, uuid_expr, now_ms_expr, tbl, tbl);
+        if (sqlite3_exec(db, sql, NULL, NULL, &errmsg) != SQLITE_OK) {
+            fprintf(stderr, "[DB ERROR] Insert trigger on %s: %s\n", tbl, errmsg ? errmsg : "err");
+            sqlite3_free(errmsg);
+            return DB_ERROR_MIGRATION;
+        }
+
+        snprintf(sql, sizeof(sql),
+                 "DROP TRIGGER IF EXISTS trg_%s_sync_upd;\n"
+                 "CREATE TRIGGER trg_%s_sync_upd AFTER UPDATE ON %s\n"
+                 "WHEN COALESCE((SELECT value FROM sync_state WHERE key = 'sync_applying_remote'), '0') != '1'\n"
+                 " AND OLD.sync_uuid IS NOT NULL AND OLD.sync_uuid != ''\n"
+                 "BEGIN\n"
+                 "    UPDATE %s SET\n"
+                 "        origin_device_id = COALESCE((SELECT value FROM sync_state WHERE key = 'device_id'), ''),\n"
+                 "        updated_at_ms = MAX((%s), OLD.updated_at_ms + 1, NEW.updated_at_ms)\n"
+                 "    WHERE rowid = NEW.rowid;\n"
+                 "    INSERT INTO sync_outbox (table_name, record_uuid, operation, payload_json, updated_at_ms)\n"
+                 "    SELECT '%s', sync_uuid, 'UPSERT', '{}', updated_at_ms FROM %s WHERE rowid = NEW.rowid;\n"
+                 "END;",
+                 tbl, tbl, tbl, tbl, now_ms_expr, tbl, tbl);
+        if (sqlite3_exec(db, sql, NULL, NULL, &errmsg) != SQLITE_OK) {
+            fprintf(stderr, "[DB ERROR] Update trigger on %s: %s\n", tbl, errmsg ? errmsg : "err");
+            sqlite3_free(errmsg);
+            return DB_ERROR_MIGRATION;
+        }
+
+        snprintf(sql, sizeof(sql),
+                 "DROP TRIGGER IF EXISTS trg_%s_sync_del;\n"
+                 "CREATE TRIGGER trg_%s_sync_del AFTER DELETE ON %s\n"
+                 "WHEN COALESCE((SELECT value FROM sync_state WHERE key = 'sync_applying_remote'), '0') != '1'\n"
+                 " AND OLD.sync_uuid IS NOT NULL AND OLD.sync_uuid != ''\n"
+                 "BEGIN\n"
+                 "    INSERT OR REPLACE INTO sync_tombstones (table_name, record_uuid, origin_device_id, deleted_at_ms)\n"
+                 "    VALUES ('%s', OLD.sync_uuid, COALESCE((SELECT value FROM sync_state WHERE key = 'device_id'), ''), (%s));\n"
+                 "    INSERT INTO sync_outbox (table_name, record_uuid, operation, payload_json, updated_at_ms)\n"
+                 "    VALUES ('%s', OLD.sync_uuid, 'DELETE', '{}', (%s));\n"
+                 "END;",
+                 tbl, tbl, tbl, tbl, now_ms_expr, tbl, now_ms_expr);
+        if (sqlite3_exec(db, sql, NULL, NULL, &errmsg) != SQLITE_OK) {
+            fprintf(stderr, "[DB ERROR] Delete trigger on %s: %s\n", tbl, errmsg ? errmsg : "err");
+            sqlite3_free(errmsg);
+            return DB_ERROR_MIGRATION;
+        }
+    }
+
+    return DB_SUCCESS;
+}
 
 /* Global database handle */
 static sqlite3 *s_db = NULL;
@@ -487,7 +694,10 @@ DbResult db_run_migrations(void)
         }
 
         db_commit();
-    } else if (current_version < 2) {
+        current_version = 2;
+    }
+
+    if (current_version < 2) {
         /* Run Migration 2 for existing v1 databases */
         DbResult tx_res = db_begin_transaction();
         if (tx_res != DB_SUCCESS) return tx_res;
@@ -535,6 +745,25 @@ DbResult db_run_migrations(void)
         }
 
         if (set_db_version(2) != DB_SUCCESS) {
+            db_rollback();
+            return DB_ERROR_MIGRATION;
+        }
+
+        db_commit();
+        current_version = 2;
+    }
+
+    if (current_version < 3) {
+        /* Run Migration 3: Multi-device sync UUIDs, tombstones & outbox triggers */
+        DbResult tx_res = db_begin_transaction();
+        if (tx_res != DB_SUCCESS) return tx_res;
+
+        if (run_sync_migration_v3(s_db) != DB_SUCCESS) {
+            db_rollback();
+            return DB_ERROR_MIGRATION;
+        }
+
+        if (set_db_version(3) != DB_SUCCESS) {
             db_rollback();
             return DB_ERROR_MIGRATION;
         }
@@ -681,4 +910,160 @@ DbResult db_log_activity(int user_id, const char *action, const char *module, co
     sqlite3_finalize(stmt);
 
     return (rc == SQLITE_DONE) ? DB_SUCCESS : DB_ERROR_STEP;
+}
+
+bool db_sync_get_state(const char *key, char *out_val, size_t val_size)
+{
+    if (!s_db || !key || !out_val || val_size == 0) return false;
+    out_val[0] = '\0';
+
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(s_db, "SELECT value FROM sync_state WHERE key = ?;", -1, &stmt, NULL) != SQLITE_OK) {
+        return false;
+    }
+    sqlite3_bind_text(stmt, 1, key, -1, SQLITE_STATIC);
+
+    bool found = false;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        const char *txt = (const char *)sqlite3_column_text(stmt, 0);
+        if (txt) {
+            strncpy(out_val, txt, val_size - 1);
+            out_val[val_size - 1] = '\0';
+            found = true;
+        }
+    }
+    sqlite3_finalize(stmt);
+    return found;
+}
+
+bool db_sync_set_state(const char *key, const char *value)
+{
+    if (!s_db || !key || !value) return false;
+
+    const char *sql =
+        "INSERT INTO sync_state (key, value) VALUES (?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value;";
+
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(s_db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        return false;
+    }
+    sqlite3_bind_text(stmt, 1, key, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, value, -1, SQLITE_STATIC);
+
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    return (rc == SQLITE_DONE);
+}
+
+bool db_sync_get_device_id(char *out_id, size_t size)
+{
+    if (!out_id || size < 16) return false;
+    if (db_sync_get_state("device_id", out_id, size) && out_id[0] != '\0') {
+        return true;
+    }
+    snprintf(out_id, size, "DEV-000000000000");
+    return false;
+}
+
+bool db_sync_get_device_prefix(char *out_prefix, size_t size)
+{
+    if (!out_prefix || size < 2) return false;
+    char raw[16] = {0};
+    if (!db_sync_get_state("device_prefix", raw, sizeof(raw)) || raw[0] == '\0') {
+        snprintf(out_prefix, size, "%s", SYNC_DEFAULT_DEVICE_PREFIX);
+        return true;
+    }
+
+    /* Sanitize to uppercase alphanumeric tag (1-4 chars) */
+    size_t j = 0;
+    for (size_t i = 0; raw[i] != '\0' && j + 1 < size && j < 4; i++) {
+        if (isalnum((unsigned char)raw[i])) {
+            out_prefix[j++] = (char)toupper((unsigned char)raw[i]);
+        }
+    }
+    if (j == 0) {
+        snprintf(out_prefix, size, "%s", SYNC_DEFAULT_DEVICE_PREFIX);
+    } else {
+        out_prefix[j] = '\0';
+    }
+    return true;
+}
+
+bool db_sync_generate_uuid(char *out_uuid, size_t size)
+{
+    if (!s_db || !out_uuid || size < 37) return false;
+
+    const char *sql =
+        "SELECT lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || "
+        "substr(hex(randomblob(2)), 2) || '-' || "
+        "substr('89ab', ((random() & 3) + 1), 1) || "
+        "substr(hex(randomblob(2)), 2) || '-' || hex(randomblob(6)));";
+
+    sqlite3_stmt *stmt = NULL;
+    if (sqlite3_prepare_v2(s_db, sql, -1, &stmt, NULL) != SQLITE_OK) return false;
+
+    bool ok = false;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        const char *u = (const char *)sqlite3_column_text(stmt, 0);
+        if (u && strlen(u) >= 36) {
+            snprintf(out_uuid, size, "%s", u);
+            ok = true;
+        }
+    }
+    sqlite3_finalize(stmt);
+    return ok;
+}
+
+bool db_sync_generate_prefixed_code(const char *table_name,
+                                    const char *col_name,
+                                    const char *code_prefix,
+                                    char *out_buf,
+                                    size_t buf_size)
+{
+    if (!table_name || !col_name || !code_prefix || !out_buf || buf_size < 20) return false;
+
+    time_t t = time(NULL);
+    struct tm tm_buf;
+    struct tm *tm_info = localtime(&t);
+    int year = 2026;
+    if (tm_info) {
+        tm_buf = *tm_info;
+        year = tm_buf.tm_year + 1900;
+    }
+
+    char dev_prefix[8] = SYNC_DEFAULT_DEVICE_PREFIX;
+    if (s_db != NULL) {
+        db_sync_get_device_prefix(dev_prefix, sizeof(dev_prefix));
+    }
+
+    char stem[32];
+    snprintf(stem, sizeof(stem), "%s-%04d-%s", code_prefix, year, dev_prefix);
+    size_t stem_len = strlen(stem);
+
+    int max_seq = 0;
+    if (s_db != NULL) {
+        char like_pattern[40];
+        snprintf(like_pattern, sizeof(like_pattern), "%s%%", stem);
+
+        char sql[256];
+        snprintf(sql, sizeof(sql), "SELECT %s FROM %s WHERE %s LIKE ?;",
+                 col_name, table_name, col_name);
+
+        sqlite3_stmt *stmt = NULL;
+        if (sqlite3_prepare_v2(s_db, sql, -1, &stmt, NULL) == SQLITE_OK) {
+            sqlite3_bind_text(stmt, 1, like_pattern, -1, SQLITE_STATIC);
+            while (sqlite3_step(stmt) == SQLITE_ROW) {
+                const char *val = (const char *)sqlite3_column_text(stmt, 0);
+                if (val && strncmp(val, stem, stem_len) == 0) {
+                    int num = atoi(val + stem_len);
+                    if (num > max_seq) max_seq = num;
+                }
+            }
+            sqlite3_finalize(stmt);
+        }
+    }
+
+    snprintf(out_buf, buf_size, "%s%04d", stem, max_seq + 1);
+    return true;
 }
