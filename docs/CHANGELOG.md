@@ -6,7 +6,10 @@ This document tracks all version releases, milestone tags, and feature additions
 
 ## Version Milestones
 
-### v2.0.0 (Current Release)
+### v2.1.0 (Current Release)
+- Companion Android APK, Offline-First cPanel Delta Sync, and Windows Print/PDF
+
+### v2.0.0 
 - APCOACHING v2.0.0 release
 
 ### v1.2.0 
@@ -97,3 +100,4 @@ This repository maintains 34 annotated Git tags tracking each milestone from ini
 | `v1.1.6` | `f0e2f7a` | APCOACHING v1.1.6 release |
 | `v1.2.0` | `f612425` | APCOACHING v1.2.0 release |
 | `v2.0.0` | `cda6ec1` | APCOACHING v2.0.0 release |
+| `v2.1.0` | `6d3a47b` | Companion Android APK, Offline-First cPanel Delta Sync, and Windows Print/PDF |
